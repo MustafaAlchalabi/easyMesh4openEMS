@@ -3,14 +3,14 @@
 ## For use
 Clone repository with
 ```
-command
+git clone https://github.com/MustafaAlchalabi/easyMesh4openEMS.git
 ```
-to `<path with cloned repository>`.
-In order to import the mesher module you have to tell python where to search for.
+to `<path of cloned repository>`.
+In order to import the mesher module you have to tell python where to search for it.
 For this purpose (as there is no module installation so far) add
 ```python
 sys.path.append('/<path with cloned repository>/easyMesh4openEMS')
-import easymesher
+import easyMesher
 ```
 to your python script or
 ```bash
