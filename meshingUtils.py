@@ -588,8 +588,12 @@ def add_missing_mesh_lines(automesher, unique_edges, sorted_points, diagonal_edg
                         lines = SmoothMeshLines([max(start, end), unique_edges[0][0]], mesh_res)
                     mesh_data.extend(lines)    
 
-def add_graded_mesh_lines(start, end, start_res, target_cellsize, growth):
+def add_graded_mesh_lines(automesher, start, end, start_res, target_cellsize, growth):
     # print(f"Adding graded mesh lines from {start} to {end} with start resolution {start_res}, target cell size {target_cellsize}, and growth factor {growth}")
+    if start_res <= 0:
+        start_res = automesher.min_cellsize
+    if target_cellsize <= 0:
+        target_cellsize = automesher.mesh_res
     lines = []
     if start < end:
         current = start
@@ -632,9 +636,9 @@ def add_graded_mesh_lines_at_material_transitions(automesher, edges, mesh_data, 
                             target_size = automesher.max_cellsize_air / epsilon**0.5
                         else:
                             target_size = mesh_res
-                        lines = add_graded_mesh_lines(edges[i][0], edges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
+                        lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
                         mesh_data.extend(lines)
-                        lines = add_graded_mesh_lines(edges[i][0], edges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
+                        lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
                         mesh_data.extend(lines)
 
                     if hasattr(edges[i][3].GetProperty(),'GetMaterialProperty') and hasattr(edges[i + 1][3].GetProperty(), 'GetMaterialProperty'):
@@ -648,9 +652,9 @@ def add_graded_mesh_lines_at_material_transitions(automesher, edges, mesh_data, 
                             target_size = automesher.max_cellsize_air / epsilon**0.5
                         else:
                             target_size = mesh_res
-                        lines = add_graded_mesh_lines(edges[i][0], edges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
+                        lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
                         mesh_data.extend(lines)
-                        lines = add_graded_mesh_lines(edges[i][0], edges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
+                        lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
                         mesh_data.extend(lines)
                         
         # if abs(np.diff([edges[i][0], edges[i + 1][0]])) != 0 and edges[i][0] > np.min(edges[0][0]) and edges[i][0] < np.max(edges[-1][0]):
@@ -666,14 +670,14 @@ def add_graded_mesh_lines_at_material_transitions(automesher, edges, mesh_data, 
         #                     target_size = automesher.max_cellsize_air / epsilon**0.5
         #                 else:
         #                     target_size = mesh_res
-        #                 lines = add_graded_mesh_lines(edges[i][0], edges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
+        #                 lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
         #                 if 2*abs(max(lines)-min(lines)) + target_size < abs(edges[i][0] - edges[i-1][0]):
         #                     if edges[i][1] < edges[i + 1][1] < edges[i][2] or edges[i][1] > edges[i + 1][1] > edges[i][2] or \
         #                         edges[i][1] < edges[i + 1][2] < edges[i][2] or edges[i][1] > edges[i + 1][2] > edges[i][2] or\
         #                         edges[i + 1][1] < edges[i][1] < edges[i + 1][2] or edges[i + 1][1] > edges[i][1] > edges[i + 1][2] or \
         #                         edges[i + 1][1] < edges[i][2] < edges[i + 1][2] or edges[i + 1][1] > edges[i][2] > edges[i + 1][2]:
         #                         mesh_data.extend(lines)
-        #                 lines = add_graded_mesh_lines(edges[i][0], edges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
+        #                 lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
         #                 if 2*abs(max(lines)-min(lines)) + target_size < abs(edges[i+1][0] - edges[i][0]):
         #                     if edges[i][1] < edges[i + 1][1] < edges[i][2] or edges[i][1] > edges[i + 1][1] > edges[i][2] or \
         #                         edges[i][1] < edges[i + 1][2] < edges[i][2] or edges[i][1] > edges[i + 1][2] > edges[i][2] or\
@@ -697,9 +701,9 @@ def add_graded_mesh_lines_at_material_transitions(automesher, edges, mesh_data, 
             else:
                 target_size = mesh_res
             # target_size = automesher.max_cellsize_air / max(mesh_map[i][2], mesh_map[i+1][2])**0.5
-            lines = add_graded_mesh_lines(mesh_map[i+1][0], mesh_map[i+1][0]-target_size, automesher.min_cellsize, target_size, 1.3)
+            lines = add_graded_mesh_lines(automesher, mesh_map[i+1][0], mesh_map[i+1][0]-target_size, automesher.min_cellsize, target_size, 1.3)
             mesh_data.extend(lines)
-            lines = add_graded_mesh_lines(mesh_map[i+1][0], mesh_map[i+1][0]+target_size, automesher.min_cellsize, target_size, 1.3)
+            lines = add_graded_mesh_lines(automesher, mesh_map[i+1][0], mesh_map[i+1][0]+target_size, automesher.min_cellsize, target_size, 1.3)
             mesh_data.extend(lines)
         if mesh_map[i+1][1] < mesh_map[i][1] and mesh_map[i][2] != mesh_map[i+1][2] and condition:
             if not automesher.min_cellsize_changed:
@@ -707,9 +711,9 @@ def add_graded_mesh_lines_at_material_transitions(automesher, edges, mesh_data, 
             else:
                 target_size = mesh_res            
             # target_size = automesher.max_cellsize_air / max(mesh_map[i][2], mesh_map[i+1][2])**0.5
-            lines = add_graded_mesh_lines(mesh_map[i+1][1], mesh_map[i+1][1]-target_size, automesher.min_cellsize, target_size, 1.3)
+            lines = add_graded_mesh_lines(automesher, mesh_map[i+1][1], mesh_map[i+1][1]-target_size, automesher.min_cellsize, target_size, 1.3)
             mesh_data.extend(lines)
-            lines = add_graded_mesh_lines(mesh_map[i+1][1], mesh_map[i+1][1]+target_size, automesher.min_cellsize, target_size, 1.3)
+            lines = add_graded_mesh_lines(automesher, mesh_map[i+1][1], mesh_map[i+1][1]+target_size, automesher.min_cellsize, target_size, 1.3)
             mesh_data.extend(lines)
 
     # for mesh_maps in mesh_map:
@@ -724,7 +728,7 @@ def add_graded_mesh_lines_at_material_transitions(automesher, edges, mesh_data, 
     #             if not mesh_data or xedges[i][0] <= min(mesh_data):
     #                 continue
     #             else:
-    #                 lines = add_graded_mesh_lines(xedges[i][0], xedges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
+    #                 lines = add_graded_mesh_lines(automesher, xedges[i][0], xedges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
     #                 if i > 0 and (abs(max(lines)-min(lines)) + target_size >= xedges[i][0] - xedges[i-1][0] or xedges[i][0] - xedges[i-1][0] == 0):
     #                     lines_to_remove = [line for line in mesh_data if ((xedges[i-1][0] <= line <= xedges[i][0]) or (xedges[i][0] <= line <= xedges[i-1][0]))]
     #                     if lines_to_remove:
@@ -735,7 +739,7 @@ def add_graded_mesh_lines_at_material_transitions(automesher, edges, mesh_data, 
     #                     # mesh_data.extend(equal_lines)                    
     #                 else:   
     #                     mesh_data.extend(lines)
-    #                 lines = add_graded_mesh_lines(xedges[i][0], xedges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
+    #                 lines = add_graded_mesh_lines(automesher, xedges[i][0], xedges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
     #                 if abs(max(lines)-min(lines)) + target_size >= xedges[i+1][0] - xedges[i][0] or xedges[i+1][0] - xedges[i][0] == 0:
     #                     lines_to_remove = [line for line in mesh_data if ((xedges[i][0] <= line <= xedges[i+1][0]) or (xedges[i+1][0] <= line <= xedges[i][0]))]
     #                     if lines_to_remove:
