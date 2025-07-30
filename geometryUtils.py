@@ -1,4 +1,4 @@
-from CSXCAD import CSPrimitives
+from CSXCAD import CSPrimitives, CSProperties
 import numpy as np
 
 def process_polygon(automesher, polygon, x, y, z, x_edges, y_edges, diagonal_edges, mesh_data):
@@ -74,9 +74,9 @@ def collect_edges(x_coords, y_coords, prim, x_edges, y_edges, diagonal_edges):
         if x_coords[i] != x_coords[i + 1] and y_coords[i] != y_coords[i + 1]:
             diagonal_edges.append([x_coords[i], x_coords[i + 1], y_coords[i], y_coords[i + 1], prim])
         if x_coords[i] == x_coords[i + 1]:
-            x_edges.append([x_coords[i], y_coords[i], y_coords[i + 1], prim])
+            x_edges.append([x_coords[i], y_coords[i], y_coords[i + 1], prim, False])
         if y_coords[i] == y_coords[i + 1]:
-            y_edges.append([y_coords[i], x_coords[i], x_coords[i + 1], prim])
+            y_edges.append([y_coords[i], x_coords[i], x_coords[i + 1], prim, False])
 
 def collect_z_coordinates(polygon):
     z = [(prim.GetElevation(), prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() != CSPrimitives.BOX]
@@ -306,9 +306,7 @@ def xline_in_polygon(polygon, x_start, x_end, y_point):
 
     return True
 
-def metal_edge(edges, polygon, mesh_res, mesh_data, dirs, metal_edge_res, direction):
-    'not ready yet'
-
+def metal_edge(automesher, edges, x_coords, y_coords, mesh_data, direction):
 
     # if metal_edge_res is not None:
     #     if unique_xedges[0] <= sorted_x[0]:
@@ -347,48 +345,84 @@ def metal_edge(edges, polygon, mesh_res, mesh_data, dirs, metal_edge_res, direct
     #             mesh_data[1] = [h for h in mesh_data[1] if h not in mesh_data_in_range]
     #             mesh_data[1].append(unique_yedges[-1]+mer[0])
     #             mesh_data[1].append(unique_yedges[-1]+mer[1])
-    
-    if isinstance(polygon, list):
-        coords = [prim.GetCoords() for prim in polygon if hasattr(prim, 'GetCoords')]
-        x = np.concatenate([coord[0] for coord in coords])
-        y = np.concatenate([coord[1] for coord in coords])
-        coords = (x, y)
-    else:
-        coords = polygon.GetCoords()
-        x = polygon.GetCoords()[0]
-        y = polygon.GetCoords()[1] 
-    mer = np.array([-1.0, 2.0]) / 3 * metal_edge_res if metal_edge_res else 0
-    if direction == 'x':
-        min_distance_x = calc_min_distance(x)
-    if direction == 'y':
-        min_distance_y = calc_min_distance(y)
-    if dirs is not None:
-        for i in range(len(edges) - 1):
-            if metal_edge_res is not None:
-                if direction == 'x':
-                    condition1 = yline_in_polygon(coords, edges[i][0]+min_distance_x/2, edges[i][1], edges[i][2]) and not yline_in_polygon(coords, edges[i][0]-min_distance_x/2, edges[i][1], edges[i][2])
-                    condition2 = yline_in_polygon(coords, edges[i][0]-min_distance_x/2, edges[i][1], edges[i][2]) and yline_in_polygon(coords, edges[i][0]+min_distance_x/2, edges[i][1], edges[i][2])
-                if direction == 'y':
-                    condition1 = xline_in_polygon(coords, edges[i][1], edges[i][2], edges[i][0]+min_distance_y/2) and not xline_in_polygon(coords, edges[i][1], edges[i][2], edges[i][0]-min_distance_y/2)
-                    condition2 = xline_in_polygon(coords, edges[i][1], edges[i][2], edges[i][0]-min_distance_y/2) and xline_in_polygon(coords, edges[i][1], edges[i][2], edges[i][0]+min_distance_y/2)
-                    if i > 0 and abs(edges[i][0] - edges[i + 1][0]) > mesh_res and abs(edges[i][0] - edges[i - 1][0]) > mesh_res:
-                        if condition1:
-                            mesh_data_in_range =  [mesh_data for mesh_data in mesh_data if edges[i][0]-mer[1] <= mesh_data <= edges[i][0]-mer[0]]
-                            if not mesh_data_in_range:
-                                mesh_data.append(edges[i][0]-mer[1])
-                                mesh_data.append(edges[i][0]-mer[0])
-                            else:
-                                mesh_data = [h for h in mesh_data if h not in mesh_data_in_range]
-                                mesh_data.append(edges[i][0]-mer[1])
-                                mesh_data.append(edges[i][0]-mer[0])
-                        elif condition2:
-                            continue
-                        else:
-                            mesh_data_in_range =  [mesh_data for mesh_data in mesh_data if edges[i][0]+mer[0] <= mesh_data <= edges[i][0]+mer[1]]
-                            if not mesh_data_in_range:
-                                mesh_data.append(edges[i][0]+mer[0])
-                                mesh_data.append(edges[i][0]+mer[1])
-                            else:
-                                mesh_data = [h for h in mesh_data if h not in mesh_data_in_range]
-                                mesh_data.append(edges[i][0]+mer[0])
-                                mesh_data.append(edges[i][0]+mer[1])
+    min_distance_x = calc_min_distance(x_coords)
+    min_distance_y = calc_min_distance(y_coords)
+    mer = np.array([-1.0, 2.0]) / 3 * automesher.min_cellsize
+    edges_to_add = []
+    edges_to_remove = []
+    for edge in list(edges):  # Iterate over a copy of the list
+        if hasattr(edge[3], 'GetProperty') and isinstance(edge[3].GetProperty(), CSProperties.CSPropMetal):
+            x, y, x_edges, y_edges, diagonal_edges = [], [], [], [], []
+            process_primitive(edge[3], x, y, x_edges, y_edges, diagonal_edges)
+            coords = [x, y]
+
+            if direction == 'x':
+                condition1 = yline_in_polygon(coords, edge[0]+min_distance_x/2, edge[1], edge[2]) and not yline_in_polygon(coords, edge[0]-min_distance_x/2, edge[1], edge[2])
+                condition2 = yline_in_polygon(coords, edge[0]-min_distance_x/2, edge[1], edge[2]) and yline_in_polygon(coords, edge[0]+min_distance_x/2, edge[1], edge[2])
+            if direction == 'y':
+                condition1 = xline_in_polygon(coords, edge[1], edge[2], edge[0]+min_distance_y/2) and not xline_in_polygon(coords, edge[1], edge[2], edge[0]-min_distance_y/2)
+                condition2 = xline_in_polygon(coords, edge[1], edge[2], edge[0]-min_distance_y/2) and xline_in_polygon(coords, edge[1], edge[2], edge[0]+min_distance_y/2)
+            if condition1:
+                mesh_data_in_range = [mesh_data for mesh_data in mesh_data if edge[0]-mer[1] <= mesh_data <= edge[0]-mer[0]]
+                if not mesh_data_in_range:
+                    edges_to_add.append([edge[0]-mer[1], edge[1], edge[2], edge[3], True])
+                    edges_to_add.append([edge[0]-mer[0], edge[1], edge[2], edge[3], True])
+                    edges_to_remove.append(edge)
+                else:
+                    mesh_data = [h for h in mesh_data if h not in mesh_data_in_range]
+                    mesh_data.append(edge[0]-mer[1])
+                    mesh_data.append(edge[0]-mer[0])
+                    edges_to_add.append([edge[0]-mer[1], edge[1], edge[2], edge[3], True])
+                    edges_to_add.append([edge[0]-mer[0], edge[1], edge[2], edge[3], True])
+                    edges_to_remove.append(edge)
+            elif condition2:
+                continue
+            else:
+                mesh_data_in_range = [mesh_data for mesh_data in mesh_data if edge[0]+mer[0] <= mesh_data <= edge[0]+mer[1]]
+                if not mesh_data_in_range:
+                    edges_to_add.append([edge[0]+mer[0], edge[1], edge[2], edge[3], True])
+                    edges_to_add.append([edge[0]+mer[1], edge[1], edge[2], edge[3], True])
+                    edges_to_remove.append(edge)
+                else:
+                    mesh_data = [h for h in mesh_data if h not in mesh_data_in_range]
+                    mesh_data.append(edge[0]+mer[0])
+                    mesh_data.append(edge[0]+mer[1])
+                    edges_to_add.append([edge[0]+mer[0], edge[1], edge[2], edge[3], True])
+                    edges_to_add.append([edge[0]+mer[1], edge[1], edge[2], edge[3], True])
+                    edges_to_remove.append(edge)
+    edges.extend(edges_to_add)
+    for edge in edges_to_remove:
+        if edge in edges:  
+            edges.remove(edge)
+    # if direction == 'x':
+    #     min_distance_x = calc_min_distance(x)
+    # if direction == 'y':
+    #     min_distance_y = calc_min_distance(y)
+    # for i in range(len(edges) - 1):
+    #     if direction == 'x':
+    #         condition1 = yline_in_polygon(coords, edges[i][0]+min_distance_x/2, edges[i][1], edges[i][2]) and not yline_in_polygon(coords, edges[i][0]-min_distance_x/2, edges[i][1], edges[i][2])
+    #         condition2 = yline_in_polygon(coords, edges[i][0]-min_distance_x/2, edges[i][1], edges[i][2]) and yline_in_polygon(coords, edges[i][0]+min_distance_x/2, edges[i][1], edges[i][2])
+    #     if direction == 'y':
+    #         condition1 = xline_in_polygon(coords, edges[i][1], edges[i][2], edges[i][0]+min_distance_y/2) and not xline_in_polygon(coords, edges[i][1], edges[i][2], edges[i][0]-min_distance_y/2)
+    #         condition2 = xline_in_polygon(coords, edges[i][1], edges[i][2], edges[i][0]-min_distance_y/2) and xline_in_polygon(coords, edges[i][1], edges[i][2], edges[i][0]+min_distance_y/2)
+    #         if i > 0 and abs(edges[i][0] - edges[i + 1][0]) > mesh_res and abs(edges[i][0] - edges[i - 1][0]) > mesh_res:
+    #             if condition1:
+    #                 mesh_data_in_range =  [mesh_data for mesh_data in mesh_data if edges[i][0]-mer[1] <= mesh_data <= edges[i][0]-mer[0]]
+    #                 if not mesh_data_in_range:
+    #                     mesh_data.append(edges[i][0]-mer[1])
+    #                     mesh_data.append(edges[i][0]-mer[0])
+    #                 else:
+    #                     mesh_data = [h for h in mesh_data if h not in mesh_data_in_range]
+    #                     mesh_data.append(edges[i][0]-mer[1])
+    #                     mesh_data.append(edges[i][0]-mer[0])
+    #             elif condition2:
+    #                 continue
+    #             else:
+    #                 mesh_data_in_range =  [mesh_data for mesh_data in mesh_data if edges[i][0]+mer[0] <= mesh_data <= edges[i][0]+mer[1]]
+    #                 if not mesh_data_in_range:
+    #                     mesh_data.append(edges[i][0]+mer[0])
+    #                     mesh_data.append(edges[i][0]+mer[1])
+    #                 else:
+    #                     mesh_data = [h for h in mesh_data if h not in mesh_data_in_range]
+    #                     mesh_data.append(edges[i][0]+mer[0])
+    #                     mesh_data.append(edges[i][0]+mer[1])
