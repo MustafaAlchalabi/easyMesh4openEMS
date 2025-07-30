@@ -27,9 +27,9 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
                     mesh_data[idx] = SmoothMeshLines(mesh_data[idx], automesher.mesh_res).tolist()
                     for start, end in automesher.mesh_with_max_cell_size[idx]:
                         mesh_data[idx] = [line for line in mesh_data[idx] if not (start < line < end)]
-        else:
-            for idx in range(3):
-                mesh_data[idx] = SmoothMeshLines(mesh_data[idx], automesher.mesh_res).tolist()
+        # else:
+        #     for idx in range(3):
+        #         mesh_data[idx] = SmoothMeshLines(mesh_data[idx], automesher.mesh_res).tolist()
     else:
         if automesher.min_cellsize_changed:
             if not automesher.primitives_mesh_setup.get(polygon, {}).get('edges_only', False):
@@ -57,20 +57,55 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
         mesh_map[1].sort(key=lambda epsilon: epsilon[2], reverse=True)
     if mesh_map[2]:
         mesh_map[2].sort(key=lambda epsilon: epsilon[2], reverse=True)
-    
+    already_smoothed = [[], [], []]
+    tmp_mesh_with_max_cell_size = automesher.mesh_with_max_cell_size
+
+    for i, (start, end) in enumerate(tmp_mesh_with_max_cell_size[0]):
+        if not any(start == x_edges[0] for x_edges in unique_xedges):
+            # search for the closest edge in xedges and replace it
+            closest_edge = min(unique_xedges, key=lambda edge: abs(edge[0] - start))
+            start = closest_edge[0]
+        if not any(end == x_edges[0] for x_edges in unique_xedges):
+            closest_edge = min(unique_xedges, key=lambda edge: abs(edge[0] - end))
+            end = closest_edge[0]
+        tmp_mesh_with_max_cell_size[0][i] = (start, end)
+
+    for i, (start, end) in enumerate(tmp_mesh_with_max_cell_size[1]):
+        if not any(start == y_edges[0] for y_edges in unique_yedges):
+            # search for the closest edge in yedges and replace it
+            closest_edge = min(unique_yedges, key=lambda edge: abs(edge[0] - start))
+            start = closest_edge[0]
+        if not any(end == y_edges[0] for y_edges in unique_yedges):
+            closest_edge = min(unique_yedges, key=lambda edge: abs(edge[0] - end))
+            end = closest_edge[0]
+        tmp_mesh_with_max_cell_size[1][i] = (start, end)
+
     for map in mesh_map[0]:
         max_cellsize = automesher.max_cellsize_air / map[2]**0.5
         lines_to_be_smoothed = [line for line in mesh_data[0] if map[0] <= line <= map[1]]
+        if any(map[0] == start or map[0] == end for start, end in tmp_mesh_with_max_cell_size[0]) or \
+           any(map[1] == start or map[1] == end for start, end in tmp_mesh_with_max_cell_size[0]):
+            continue
         if lines_to_be_smoothed:
+            already_smoothed[0].append((map[0], map[1]))
             mesh_data[0].extend(SmoothMeshLines(lines_to_be_smoothed, max_cellsize).tolist())
+
     for map in mesh_map[1]:
         max_cellsize = automesher.max_cellsize_air / map[2]**0.5
         lines_to_be_smoothed = [line for line in mesh_data[1] if map[0] <= line <= map[1]]
+        if any(map[0] == start or map[0] == end for start, end in tmp_mesh_with_max_cell_size[1]) or \
+              any(map[1] == start or map[1] == end for start, end in tmp_mesh_with_max_cell_size[1]):    
+            continue
         if lines_to_be_smoothed:
+            already_smoothed[1].append((map[0], map[1]))
             mesh_data[1].extend(SmoothMeshLines(lines_to_be_smoothed, max_cellsize).tolist())
+            
     for map in mesh_map[2]:
         max_cellsize = automesher.max_cellsize_air / map[2]**0.5
         lines_to_be_smoothed = [line for line in mesh_data[2] if map[0] <= line <= map[1]]
+        if any(map[0] == start or map[0] == end for start, end in tmp_mesh_with_max_cell_size[2]) or \
+              any(map[1] == start or map[1] == end for start, end in tmp_mesh_with_max_cell_size[2]):
+            continue
         if lines_to_be_smoothed:
             mesh_data[2].extend(SmoothMeshLines(lines_to_be_smoothed, max_cellsize).tolist())
 
@@ -105,6 +140,7 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
             for start, end in automesher.mesh_with_max_cell_size[0]:
                 lines_to_add = [line for line in lines if (start < line < end)]
                 mesh_data[0].extend(lines_to_add)
+
         if automesher.mesh_with_max_cell_size[1]:
             lines = SmoothMeshLines(mesh_data[1], automesher.max_cellsize/2, 1.3).tolist()
             lines = sorted(set(lines))
@@ -112,6 +148,7 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
             mean_resolution = []
             skipping_list = []
             for start, end in automesher.mesh_with_max_cell_size[1]:
+                print('Start,stop:', start, end)
                 lines_to_add_in_lines_in_range = [line for line in lines if start < line < end]
                 if lines_to_add_in_lines_in_range:
                     lines_to_add_in_lines_in_range = sorted(set(lines_to_add_in_lines_in_range))
@@ -133,6 +170,7 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
             for start, end in automesher.mesh_with_max_cell_size[1]:
                 lines_to_add = [line for line in lines if (start < line < end)]
                 mesh_data[1].extend(lines_to_add)
+                
         if automesher.mesh_with_max_cell_size[2]:
             lines = SmoothMeshLines(mesh_data[2], automesher.max_cellsize/2, 1.3).tolist()
             lines = sorted(set(lines))
