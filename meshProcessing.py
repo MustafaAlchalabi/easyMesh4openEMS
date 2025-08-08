@@ -115,8 +115,8 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
             lines = sorted(set(lines))
             lines_in_range = []
             mean_resolution = []
-            skipping_list = []
-            for start, end in automesher.mesh_with_max_cell_size[0]:
+            skipping_list = [False] * len(automesher.mesh_with_max_cell_size[0])
+            for idx, (start, end) in enumerate(automesher.mesh_with_max_cell_size[0]):
                 lines_to_add_in_lines_in_range = [line for line in lines if start < line < end]
                 if lines_to_add_in_lines_in_range:
                     lines_to_add_in_lines_in_range = sorted(set(lines_to_add_in_lines_in_range))
@@ -146,8 +146,8 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
             lines = sorted(set(lines))
             lines_in_range = []
             mean_resolution = []
-            skipping_list = []
-            for start, end in automesher.mesh_with_max_cell_size[1]:
+            skipping_list = [False] * len(automesher.mesh_with_max_cell_size[1])
+            for idx, (start, end) in enumerate(automesher.mesh_with_max_cell_size[1]):
                 print('Start,stop:', start, end)
                 lines_to_add_in_lines_in_range = [line for line in lines if start < line < end]
                 if lines_to_add_in_lines_in_range:
@@ -176,8 +176,8 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
             lines = sorted(set(lines))
             lines_in_range = []
             mean_resolution = []
-            skipping_list = []
-            for start, end in automesher.mesh_with_max_cell_size[2]:
+            skipping_list = [False] * len(automesher.mesh_with_max_cell_size[2])
+            for idx, (start, end) in enumerate(automesher.mesh_with_max_cell_size[2]):
                 lines_to_add_in_lines_in_range = [line for line in lines if start < line < end]
                 if lines_to_add_in_lines_in_range:
                     lines_to_add_in_lines_in_range = sorted(set(lines_to_add_in_lines_in_range))
@@ -237,21 +237,21 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
             distance[i] = automesher.wave_length
         elif distance[i] is None:
             distance[i] = 0
-    if xmax in mesh_data[0]:
-        graded_lines_x.extend(meshingUtils.add_graded_mesh_lines(automesher, np.max(mesh_data[0]), xmax+distance[0], abs(np.max(mesh_data[0])- mesh_data[0][np.argmax(mesh_data[0]) - 1]), automesher.max_cellsize_air, 1.3))
     if xmin in mesh_data[0]:
         graded_lines_x.extend(meshingUtils.add_graded_mesh_lines(automesher, np.min(mesh_data[0]), xmin-distance[1], abs(np.min(mesh_data[0]) - mesh_data[0][np.argmin(mesh_data[0]) + 1]) , automesher.max_cellsize_air, 1.3))
-    if ymax in mesh_data[1]:
-        graded_lines_y.extend(meshingUtils.add_graded_mesh_lines(automesher, np.max(mesh_data[1]), ymax+distance[2], abs(np.max(mesh_data[1])- mesh_data[1][np.argmax(mesh_data[1]) - 1]), automesher.max_cellsize_air, 1.3))
+    if xmax in mesh_data[0]:
+        graded_lines_x.extend(meshingUtils.add_graded_mesh_lines(automesher, np.max(mesh_data[0]), xmax+distance[0], abs(np.max(mesh_data[0])- mesh_data[0][np.argmax(mesh_data[0]) - 1]), automesher.max_cellsize_air, 1.3))
     if ymin in mesh_data[1]:
         graded_lines_y.extend(meshingUtils.add_graded_mesh_lines(automesher, np.min(mesh_data[1]), ymin-distance[3], abs(np.min(mesh_data[1]) - mesh_data[1][np.argmin(mesh_data[1]) + 1]), automesher.max_cellsize_air, 1.3))
-    if mesh_data[2] and zmax in mesh_data[2]:
-        graded_lines_z.extend(meshingUtils.add_graded_mesh_lines(automesher, np.max(mesh_data[2]), zmax+distance[4], abs(np.max(mesh_data[2])- mesh_data[2][np.argmax(mesh_data[2]) - 1]), automesher.max_cellsize_air, 1.3))
+    if ymax in mesh_data[1]:
+        graded_lines_y.extend(meshingUtils.add_graded_mesh_lines(automesher, np.max(mesh_data[1]), ymax+distance[2], abs(np.max(mesh_data[1])- mesh_data[1][np.argmax(mesh_data[1]) - 1]), automesher.max_cellsize_air, 1.3))
     if mesh_data[2] and zmin in mesh_data[2]:
         if np.argmin(mesh_data[2]) + 1 >= len(mesh_data[2]):
             graded_lines_z.extend(meshingUtils.add_graded_mesh_lines(automesher, np.min(mesh_data[2]), zmin-distance[5], 0, automesher.max_cellsize_air, 1.3))
         else:
             graded_lines_z.extend(meshingUtils.add_graded_mesh_lines(automesher, np.min(mesh_data[2]), zmin-distance[5], abs(np.min(mesh_data[2]) - mesh_data[2][np.argmin(mesh_data[2]) + 1]), automesher.max_cellsize_air, 1.3))
+    if mesh_data[2] and zmax in mesh_data[2]:
+        graded_lines_z.extend(meshingUtils.add_graded_mesh_lines(automesher, np.max(mesh_data[2]), zmax+distance[4], abs(np.max(mesh_data[2])- mesh_data[2][np.argmax(mesh_data[2]) - 1]), automesher.max_cellsize_air, 1.3))
 
     # add  graded lines to lines list
     mesh_data[0] = np.append(mesh_data[0], graded_lines_x)
