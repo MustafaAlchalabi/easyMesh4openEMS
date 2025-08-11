@@ -27,9 +27,9 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
                     mesh_data[idx] = SmoothMeshLines(mesh_data[idx], automesher.mesh_res).tolist()
                     for start, end in automesher.mesh_with_max_cell_size[idx]:
                         mesh_data[idx] = [line for line in mesh_data[idx] if not (start < line < end)]
-        # else:
-        #     for idx in range(3):
-        #         mesh_data[idx] = SmoothMeshLines(mesh_data[idx], automesher.mesh_res).tolist()
+        else:
+            for idx in range(3):
+                mesh_data[idx] = SmoothMeshLines(mesh_data[idx], automesher.mesh_res).tolist()
     else:
         if automesher.min_cellsize_changed:
             if not automesher.primitives_mesh_setup.get(polygon, {}).get('edges_only', False):
@@ -238,20 +238,20 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
         elif distance[i] is None:
             distance[i] = 0
     if xmin in mesh_data[0]:
-        graded_lines_x.extend(meshingUtils.add_graded_mesh_lines(automesher, np.min(mesh_data[0]), xmin-distance[1], abs(np.min(mesh_data[0]) - mesh_data[0][np.argmin(mesh_data[0]) + 1]) , automesher.max_cellsize_air, 1.3))
+        graded_lines_x.extend(meshingUtils.add_graded_mesh_lines(automesher, np.min(mesh_data[0]), xmin-distance[0], abs(np.min(mesh_data[0]) - mesh_data[0][np.argmin(mesh_data[0]) + 1]) , automesher.max_cellsize_air, 1.3))
     if xmax in mesh_data[0]:
-        graded_lines_x.extend(meshingUtils.add_graded_mesh_lines(automesher, np.max(mesh_data[0]), xmax+distance[0], abs(np.max(mesh_data[0])- mesh_data[0][np.argmax(mesh_data[0]) - 1]), automesher.max_cellsize_air, 1.3))
+        graded_lines_x.extend(meshingUtils.add_graded_mesh_lines(automesher, np.max(mesh_data[0]), xmax+distance[1], abs(np.max(mesh_data[0])- mesh_data[0][np.argmax(mesh_data[0]) - 1]), automesher.max_cellsize_air, 1.3))
     if ymin in mesh_data[1]:
-        graded_lines_y.extend(meshingUtils.add_graded_mesh_lines(automesher, np.min(mesh_data[1]), ymin-distance[3], abs(np.min(mesh_data[1]) - mesh_data[1][np.argmin(mesh_data[1]) + 1]), automesher.max_cellsize_air, 1.3))
+        graded_lines_y.extend(meshingUtils.add_graded_mesh_lines(automesher, np.min(mesh_data[1]), ymin-distance[2], abs(np.min(mesh_data[1]) - mesh_data[1][np.argmin(mesh_data[1]) + 1]), automesher.max_cellsize_air, 1.3))
     if ymax in mesh_data[1]:
-        graded_lines_y.extend(meshingUtils.add_graded_mesh_lines(automesher, np.max(mesh_data[1]), ymax+distance[2], abs(np.max(mesh_data[1])- mesh_data[1][np.argmax(mesh_data[1]) - 1]), automesher.max_cellsize_air, 1.3))
+        graded_lines_y.extend(meshingUtils.add_graded_mesh_lines(automesher, np.max(mesh_data[1]), ymax+distance[3], abs(np.max(mesh_data[1])- mesh_data[1][np.argmax(mesh_data[1]) - 1]), automesher.max_cellsize_air, 1.3))
     if mesh_data[2] and zmin in mesh_data[2]:
         if np.argmin(mesh_data[2]) + 1 >= len(mesh_data[2]):
-            graded_lines_z.extend(meshingUtils.add_graded_mesh_lines(automesher, np.min(mesh_data[2]), zmin-distance[5], 0, automesher.max_cellsize_air, 1.3))
+            graded_lines_z.extend(meshingUtils.add_graded_mesh_lines(automesher, np.min(mesh_data[2]), zmin-distance[4], 0, automesher.max_cellsize_air, 1.3))
         else:
-            graded_lines_z.extend(meshingUtils.add_graded_mesh_lines(automesher, np.min(mesh_data[2]), zmin-distance[5], abs(np.min(mesh_data[2]) - mesh_data[2][np.argmin(mesh_data[2]) + 1]), automesher.max_cellsize_air, 1.3))
+            graded_lines_z.extend(meshingUtils.add_graded_mesh_lines(automesher, np.min(mesh_data[2]), zmin-distance[4], abs(np.min(mesh_data[2]) - mesh_data[2][np.argmin(mesh_data[2]) + 1]), automesher.max_cellsize_air, 1.3))
     if mesh_data[2] and zmax in mesh_data[2]:
-        graded_lines_z.extend(meshingUtils.add_graded_mesh_lines(automesher, np.max(mesh_data[2]), zmax+distance[4], abs(np.max(mesh_data[2])- mesh_data[2][np.argmax(mesh_data[2]) - 1]), automesher.max_cellsize_air, 1.3))
+        graded_lines_z.extend(meshingUtils.add_graded_mesh_lines(automesher, np.max(mesh_data[2]), zmax+distance[5], abs(np.max(mesh_data[2])- mesh_data[2][np.argmax(mesh_data[2]) - 1]), automesher.max_cellsize_air, 1.3))
 
     # add  graded lines to lines list
     mesh_data[0] = np.append(mesh_data[0], graded_lines_x)
@@ -262,7 +262,10 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
     mesh_data[1] = mesh_data[1].tolist() if isinstance(mesh_data[1], np.ndarray) else mesh_data[1]
     mesh_data[2] = mesh_data[2].tolist() if isinstance(mesh_data[2], np.ndarray) else mesh_data[2]
 
-    # if automesher.global_mesh_setup.get('min_cellsize', None) is not None or automesher.min_cellsize_changed:
+    unique_xedges.sort(key=lambda edge: edge[0])
+    unique_yedges.sort(key=lambda edge: edge[0])
+    z_coords.sort(key=lambda edge: edge[0])
+
     mesh_data[0] = process_mesh_data(mesh_data[0], automesher.min_cellsize, unique_xedges)
     mesh_data[1] = process_mesh_data(mesh_data[1], automesher.min_cellsize, unique_yedges)
     mesh_data[2] = process_mesh_data(mesh_data[2], automesher.min_cellsize, z_coords)

@@ -112,8 +112,8 @@ class Automesher:
         z_coords = [(z[0], None, None, z[1], False) for z in z_coords]
         z_coords.sort(key=lambda edge: edge[0])
 
-        # geometryUtils.metal_edge(self, x_edges, x_coords, y_coords, mesh_data[0], 'x')
-        # geometryUtils.metal_edge(self, y_edges, x_coords, y_coords, mesh_data[1], 'y')
+        geometryUtils.metal_edge(self, x_edges, x_coords, y_coords, mesh_data[0], 'x')
+        geometryUtils.metal_edge(self, y_edges, x_coords, y_coords, mesh_data[1], 'y')
 
         # Add graded meshlines at material transitions
         meshingUtils.add_graded_mesh_lines_at_material_transitions(self, x_edges,mesh_data[0], self.mesh_res, mesh_map[0],'x')
@@ -152,7 +152,7 @@ class Automesher:
         mesh_data[0] = meshingUtils.add_ports_to_mesh_data(self, mesh_data[0], x_edges, 'x')
         mesh_data[1] = meshingUtils.add_ports_to_mesh_data(self, mesh_data[1], y_edges, 'y')
         mesh_data[2] = meshingUtils.add_ports_to_mesh_data(self, mesh_data[2], z_coords, 'z')
-
+        
         # Smooth and process the mesh lines
         meshProcessing.smooth_and_process_mesh_lines(self, mesh_data, polygon, grid, x_edges, y_edges, z_coords, unique_xedges, unique_yedges, z_coords, mesh_map) 
 
