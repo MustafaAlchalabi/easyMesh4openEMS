@@ -49,6 +49,10 @@ def get_mesh_parameters(automesher):
                 mesh_res = automesher.wave_length / (30 * epsilon**0.5)
                 automesher.max_cellsize_air = automesher.wave_length / 30
                 num_lines = 7
+            elif mesh_res == 'extreme':
+                mesh_res = automesher.wave_length / (100 * epsilon**0.5)
+                automesher.max_cellsize_air = automesher.wave_length / 40
+                num_lines = 12
             else:
                 mesh_res = automesher.wave_length / (20 * epsilon**0.5)   
                 automesher.max_cellsize_air = automesher.wave_length / 20
@@ -366,19 +370,21 @@ def add_ports_to_mesh_data(automesher, mesh_data, edges, direction):
             x.extend(port_coords_x)
             y.extend(port_coords_y)
             geometryUtils.collect_edges(port_coords_x, port_coords_y, prim, x_edges, y_edges, diagonal_edges)
-            z = [(z, None, None, prim) for z in port_coords_z]
+            z = [(z, None, None, prim, False) for z in port_coords_z]
             zedges.extend(z)
     if direction == 'x':
-        if x_edges:
-            edges.extend(x_edges)
+        for edge in edges:
+            if not any(e[0] == edge[0] and e[4] is True for e in edges):
+                x_edges.append(edge)
     if direction == 'y':
-        if y_edges:
-            edges.extend(y_edges)
+        for edge in edges:
+            if not any(e[0] == edge[0] and e[4] is True for e in edges):
+                y_edges.append(edge)
     if direction == 'z': 
         if zedges:
             edges.extend(zedges)
     for edge in edges:
-        if hasattr(edge[3], 'priority'):
+        if hasattr(edge[3], 'priority') and not any(e[0] == edge[0] and e[4] is True for e in edges):
             mesh_data.append(edge[0])
             for line in mesh_data:
                 if abs(line - edge[0]) < automesher.min_cellsize/2:
@@ -396,15 +402,16 @@ def add_edges_to_mesh_mesh_data(automesher, mesh_data, edges, mesh_res, min_cell
         dirs = automesher.primitives_mesh_setup.get(edge[3], {}).get('dirs') or \
                 automesher.properties_mesh_setup.get(edge[3].GetProperty() if hasattr(edge[3], 'GetProperty') else None, {}).get('dirs') or \
                 automesher.global_mesh_setup.get('dirs', 'xyz')
-        if direction == 'x':
-            if 'x' in dirs:              
-                mesh_data.append(edge[0])
-        if direction == 'y':
-            if 'y' in dirs:
-                mesh_data.append(edge[0])
-        if direction == 'z':
-            if 'z' in dirs:
-                mesh_data.append(edge[0])
+        if not any(e[0] == edge[0] and e[4] is True for e in edges):
+            if direction == 'x':
+                if 'x' in dirs:              
+                    mesh_data.append(edge[0])
+            if direction == 'y':
+                if 'y' in dirs:
+                    mesh_data.append(edge[0])
+            if direction == 'z':
+                if 'z' in dirs:
+                    mesh_data.append(edge[0])
     # mesh_data.extend(edge[0] for edge in edges)
 
 def remove_close_edges(automesher, edges, direction):
@@ -415,10 +422,26 @@ def remove_close_edges(automesher, edges, direction):
             if hasattr(edges[i][3], 'priority') and hasattr(edges[i + 1][3], 'priority'):
                 if edges[i][3].priority == edges[i + 1][3].priority:
                     continue
-            elif (getattr(edges[i][3], 'GetPriority', lambda: None)() or edges[i][3].priority) > (getattr(edges[i + 1][3], 'GetPriority', lambda: None)() or edges[i + 1][3].priority):
-                edges_to_remove.append(edges[i + 1])
-            elif (getattr(edges[i][3], 'GetPriority', lambda: None)() or edges[i][3].priority) < (getattr(edges[i + 1][3], 'GetPriority', lambda: None)() or edges[i + 1][3].priority):
-                edges_to_remove.append(edges[i])
+            elif hasattr(edges[i][3], 'GetPriority') and (hasattr(edges[i + 1][3], 'GetPriority')):
+                if edges[i][3].GetPriority() > edges[i + 1][3].GetPriority():
+                    edges_to_remove.append(edges[i + 1])
+                elif edges[i][3].GetPriority() < edges[i + 1][3].GetPriority():
+                    edges_to_remove.append(edges[i])
+            elif hasattr(edges[i][3], 'priority') and (hasattr(edges[i + 1][3], 'priority')):
+                if edges[i][3].priority > edges[i + 1][3].priority:
+                    edges_to_remove.append(edges[i + 1])
+                elif edges[i][3].priority < edges[i + 1][3].priority:   
+                    edges_to_remove.append(edges[i])
+            elif hasattr(edges[i][3], 'GetPriority') and hasattr(edges[i + 1][3], 'priority'):
+                if edges[i][3].GetPriority() > edges[i + 1][3].priority:
+                    edges_to_remove.append(edges[i + 1])
+                elif edges[i][3].GetPriority() < edges[i + 1][3].priority:  
+                    edges_to_remove.append(edges[i])
+            elif hasattr(edges[i][3], 'priority') and hasattr(edges[i + 1][3], 'GetPriority'):
+                if edges[i][3].priority > edges[i + 1][3].GetPriority():
+                    edges_to_remove.append(edges[i + 1])
+                elif edges[i][3].priority < edges[i + 1][3].GetPriority():
+                    edges_to_remove.append(edges[i])                
             else:
                 print(f"\033[91mWarning: Detected closely spaced edges at ({direction} = {edges[i][0]} and {direction} = {edges[i+1][0]}, d{direction} = {abs(edges[i][0]-edges[i+1][0])}). This configuration may lead to prolonged simulation times. Consider assigning different priorities or modifying the structure to optimize performance.\033[0m")
                 continue
@@ -439,9 +462,9 @@ def remove_close_unique_edges(automesher, unique_edges, max_res):
             if hasattr(unique_edges[i][1], 'priority') and hasattr(unique_edges[i + 1][1], 'priority'):
                 if unique_edges[i][1].priority == unique_edges[i + 1][1].priority:
                     continue
-            elif (getattr(unique_edges[i][1], 'GetPriority', lambda: None)() or unique_edges[i][1].priority) > (getattr(unique_edges[i + 1][1], 'GetPriority', lambda: None)() or unique_edges[i + 1][1].priority):
+            elif (getattr(unique_edges[i][1], 'GetPriority', lambda: None)() or unique_edges[i][1].priority) > (getattr(unique_edges[i + 1][1], 'GetPriority', lambda: None)() or getattr(unique_edges[i + 1][1], 'priority')):
                 unique_edges_to_remove.append(unique_edges[i + 1])
-            elif (getattr(unique_edges[i][1], 'GetPriority', lambda: None)() or unique_edges[i][1].priority) < (getattr(unique_edges[i + 1][1], 'GetPriority', lambda: None)() or unique_edges[i + 1][1].priority):
+            elif (getattr(unique_edges[i][1], 'GetPriority', lambda: None)() or unique_edges[i][1].priority) < (getattr(unique_edges[i + 1][1], 'GetPriority', lambda: None)() or getattr(unique_edges[i + 1][1], 'priority')):
                 unique_edges_to_remove.append(unique_edges[i])
             else:
                 if unique_edges[i][0] < unique_edges[i + 1][0]:
@@ -468,58 +491,65 @@ def mesh_small_gaps(automesher, unique_edges, mesh_res, max_res, num_lines, mesh
                 for z in z_in_range:
                     mesh_data[2] = list(mesh_data[2])  
                     mesh_data[2].remove(z)
-                # if use_num_lines:
-                #     new_max_res = np.diff(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], num_lines))
-                #     new_max_res = np.max(new_max_res)
-                #     # max_res_list.append(new_max_res)
-                # else:
-                #     new_max_res = max_res
-                zlines = SmoothMeshLines([unique_edges[i][0], unique_edges[i + 1][0]], automesher.max_res)
-                # if len(zlines) <= 4:
-                #     mesh_data[2] = list(mesh_data[2]) 
-                #     mesh_data[2].extend(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], 4))
-                # else:
-                mesh_data[2].extend(zlines)
+                if use_num_lines:
+                    new_max_res = np.diff(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], num_lines))
+                    new_max_res = np.max(new_max_res)
+                    max_res_list.append(new_max_res)
+                else:
+                    new_max_res = max_res
+                zlines = SmoothMeshLines([unique_edges[i][0], unique_edges[i + 1][0]], new_max_res)
+                if len(zlines) <= 4:
+                    mesh_data[2] = list(mesh_data[2]) 
+                    mesh_data[2].extend(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], 4))
+                else:
+                    mesh_data[2].extend(zlines)
     else:
         for i in range(len(unique_edges) - 1):
-            if abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) <= mesh_res and abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) >= max_res and abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) >= 1.5:
-                y1, y2 = unique_edges[i][1], unique_edges[i][2]
-                y1_next, y2_next = unique_edges[i + 1][1], unique_edges[i + 1][2]
-                if (y1 <= y1_next <= y2 or y1 >= y1_next >= y2 or
-                    y1 <= y2_next <= y2 or y1 >= y2_next >= y2 or
-                    y1_next <= y1 <= y2_next or y1_next >= y1 >= y2_next or
-                    y1_next <= y2 <= y2_next or y1_next >= y2 >= y2_next):
-                        # print('unique_edges[i], unique_edges[i + 1]:', unique_edges[i], unique_edges[i + 1])
-                        if direction == 'x':
-                            x_in_range = [x for x in mesh_data[0] if unique_edges[i][0] <= x <= unique_edges[i + 1][0]]
-                            for x in x_in_range:
-                                mesh_data[0].remove(x)
-                            if use_num_lines:
-                                new_max_res = np.diff(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], num_lines))
-                                new_max_res = np.max(new_max_res)
-                                max_res_list.append(new_max_res)
-                            else:
-                                new_max_res = max_res
-                            xlines = SmoothMeshLines([unique_edges[i][0], unique_edges[i + 1][0]], new_max_res)
-                            if len(xlines) <= 4:
-                                mesh_data[0].extend(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], 4))
-                            else:
-                                mesh_data[0].extend(xlines)
-                        elif direction == 'y':
-                            y_in_range = [y for y in mesh_data[1] if unique_edges[i][0] <= y <= unique_edges[i + 1][0]]
-                            for y in y_in_range:
-                                mesh_data[1].remove(y)
-                            if use_num_lines:
-                                new_max_res = np.diff(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], num_lines))
-                                new_max_res = np.max(new_max_res)
-                                max_res_list.append(new_max_res)
-                            else:
-                                new_max_res = max_res
-                            ylines = SmoothMeshLines([unique_edges[i][0], unique_edges[i + 1][0]], new_max_res)
-                            if len(ylines) <= 4:
-                                mesh_data[1].extend(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], 4))
-                            else:
-                                mesh_data[1].extend(ylines)
+            # if not unique_edges[i + 1][4] and not unique_edges[i][4]:
+                if abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) <= 2*mesh_res and abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) >= max_res and abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) >= 1.5:
+                    y1, y2 = unique_edges[i][1], unique_edges[i][2]
+                    y1_next, y2_next = unique_edges[i + 1][1], unique_edges[i + 1][2]
+                    if (y1 <= y1_next <= y2 or y1 >= y1_next >= y2 or
+                        y1 <= y2_next <= y2 or y1 >= y2_next >= y2 or
+                        y1_next <= y1 <= y2_next or y1_next >= y1 >= y2_next or
+                        y1_next <= y2 <= y2_next or y1_next >= y2 >= y2_next):
+                            # print('unique_edges[i], unique_edges[i + 1]:', unique_edges[i], unique_edges[i + 1])
+                            if direction == 'x':
+                                x_in_range = [x for x in mesh_data[0] if unique_edges[i][0] <= x <= unique_edges[i + 1][0]]
+                                if use_num_lines:
+                                    new_max_res = np.diff(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], num_lines))
+                                    new_max_res = np.max(new_max_res)
+                                    max_res_list.append(new_max_res)
+                                else:
+                                    new_max_res = max_res
+                                if not automesher.global_mesh_setup.get('smooth_metal_edge', False):
+                                    for x in x_in_range:
+                                        mesh_data[0].remove(x)
+                                    x_in_range.append(unique_edges[i][0])
+                                    x_in_range.append(unique_edges[i + 1][0])
+                                xlines = SmoothMeshLines([x_in_range], new_max_res)
+                                if len(xlines) <= 4 and not automesher.global_mesh_setup.get('smooth_metal_edge', False):
+                                    mesh_data[0].extend(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], 4))
+                                else:
+                                    mesh_data[0].extend(xlines)
+                            elif direction == 'y':
+                                y_in_range = [y for y in mesh_data[1] if unique_edges[i][0] <= y <= unique_edges[i + 1][0]]
+                                if use_num_lines:
+                                    new_max_res = np.diff(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], num_lines))
+                                    new_max_res = np.max(new_max_res)
+                                    max_res_list.append(new_max_res)
+                                else:
+                                    new_max_res = max_res
+                                if not automesher.global_mesh_setup.get('smooth_metal_edge', False):
+                                    for y in y_in_range:
+                                        mesh_data[1].remove(y)
+                                    y_in_range.append(unique_edges[i][0])
+                                    y_in_range.append(unique_edges[i + 1][0])
+                                ylines = SmoothMeshLines([y_in_range], new_max_res)
+                                if len(ylines) <= 4 and not automesher.global_mesh_setup.get('smooth_metal_edge', False):
+                                    mesh_data[1].extend(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], 4))
+                                else:
+                                    mesh_data[1].extend(ylines)
     if max_res_list:
         new_min_cellsize = min(max_res_list) - 0.25*min(max_res_list)
         if new_min_cellsize < automesher.min_cellsize:
@@ -588,8 +618,12 @@ def add_missing_mesh_lines(automesher, unique_edges, sorted_points, diagonal_edg
                         lines = SmoothMeshLines([max(start, end), unique_edges[0][0]], mesh_res)
                     mesh_data.extend(lines)    
 
-def add_graded_mesh_lines(start, end, start_res, target_cellsize, growth):
+def add_graded_mesh_lines(automesher, start, end, start_res, target_cellsize, growth):
     # print(f"Adding graded mesh lines from {start} to {end} with start resolution {start_res}, target cell size {target_cellsize}, and growth factor {growth}")
+    if start_res <= 0:
+        start_res = automesher.min_cellsize
+    if target_cellsize <= 0:
+        target_cellsize = automesher.mesh_res
     lines = []
     if start < end:
         current = start
@@ -598,7 +632,7 @@ def add_graded_mesh_lines(start, end, start_res, target_cellsize, growth):
         while current + temp_cellsize < end:
             current += temp_cellsize
             lines.append(current)
-            if temp_cellsize < target_cellsize:
+            if temp_cellsize < target_cellsize and temp_cellsize*growth <= target_cellsize:
                 temp_cellsize *= growth
             else:
                 temp_cellsize = target_cellsize
@@ -610,7 +644,7 @@ def add_graded_mesh_lines(start, end, start_res, target_cellsize, growth):
         while current - temp_cellsize > end:
             current -= temp_cellsize
             lines.append(current)
-            if temp_cellsize < target_cellsize:
+            if temp_cellsize < target_cellsize and temp_cellsize*growth <= target_cellsize:
                 temp_cellsize *= growth
             else:
                 temp_cellsize = target_cellsize
@@ -618,133 +652,134 @@ def add_graded_mesh_lines(start, end, start_res, target_cellsize, growth):
     return lines
 
 def add_graded_mesh_lines_at_material_transitions(automesher, edges, mesh_data, mesh_res, mesh_map, direction):
-    for i in range(len(edges) - 1):
-        if abs(np.diff([edges[i][0], edges[i + 1][0]])) == 0 and edges[i][0] > np.min(edges[0][0]) and edges[i][0] < np.max(edges[-1][0]):
-            if hasattr(edges[i][3], 'GetProperty') and hasattr(edges[i + 1][3], 'GetProperty'):
-                if edges[i][3].GetProperty()!= edges[i + 1][3].GetProperty():
-                    if hasattr(edges[i][3].GetProperty(),'GetMaterialProperty') and not hasattr(edges[i + 1][3].GetProperty(), 'GetMaterialProperty') or \
-                        hasattr(edges[i + 1][3].GetProperty(),'GetMaterialProperty') and not hasattr(edges[i][3].GetProperty(), 'GetMaterialProperty'):
-                        if hasattr(edges[i][3].GetProperty(),'GetMaterialProperty'):
-                            epsilon = edges[i][3].GetProperty().GetMaterialProperty('epsilon')
-                        elif hasattr(edges[i + 1][3].GetProperty(), 'GetMaterialProperty'):
-                            epsilon = edges[i + 1][3].GetProperty().GetMaterialProperty('epsilon')
-                        if not automesher.min_cellsize_changed:
-                            target_size = automesher.max_cellsize_air / epsilon**0.5
-                        else:
-                            target_size = mesh_res
-                        lines = add_graded_mesh_lines(edges[i][0], edges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
-                        mesh_data.extend(lines)
-                        lines = add_graded_mesh_lines(edges[i][0], edges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
-                        mesh_data.extend(lines)
+    if automesher.global_mesh_setup.get('add_graded_mesh_lines_at_material_transitions', False) is True:
+        for i in range(len(edges) - 1):
+            if abs(np.diff([edges[i][0], edges[i + 1][0]])) == 0 and edges[i][0] > np.min(edges[0][0]) and edges[i][0] < np.max(edges[-1][0]):
+                if hasattr(edges[i][3], 'GetProperty') and hasattr(edges[i + 1][3], 'GetProperty'):
+                    if edges[i][3].GetProperty()!= edges[i + 1][3].GetProperty():
+                        if hasattr(edges[i][3].GetProperty(),'GetMaterialProperty') and not hasattr(edges[i + 1][3].GetProperty(), 'GetMaterialProperty') or \
+                            hasattr(edges[i + 1][3].GetProperty(),'GetMaterialProperty') and not hasattr(edges[i][3].GetProperty(), 'GetMaterialProperty'):
+                            if hasattr(edges[i][3].GetProperty(),'GetMaterialProperty') and not hasattr(edges[i + 1][3].GetProperty(), 'GetMaterialProperty'):
+                                epsilon = edges[i][3].GetProperty().GetMaterialProperty('epsilon')
+                            elif hasattr(edges[i + 1][3].GetProperty(), 'GetMaterialProperty') and not hasattr(edges[i][3].GetProperty(), 'GetMaterialProperty'):
+                                epsilon = edges[i + 1][3].GetProperty().GetMaterialProperty('epsilon')
+                            if not automesher.min_cellsize_changed:
+                                target_size = automesher.max_cellsize_air / epsilon**0.5
+                            else:
+                                target_size = mesh_res
+                            lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
+                            mesh_data.extend(lines)
+                            lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
+                            mesh_data.extend(lines)
 
-                    if hasattr(edges[i][3].GetProperty(),'GetMaterialProperty') and hasattr(edges[i + 1][3].GetProperty(), 'GetMaterialProperty'):
-                        # print('edges[i], epsilon, edges[i + 1], epsilon:', edges[i], edges[i][3].GetProperty().GetMaterialProperty('epsilon'), edges[i + 1], edges[i + 1][3].GetProperty().GetMaterialProperty('epsilon'))
-                        if edges[i][3].GetProperty().GetMaterialProperty('epsilon') != edges[i + 1][3].GetProperty().GetMaterialProperty('epsilon'):
-                            epsilon = max(edges[i][3].GetProperty().GetMaterialProperty('epsilon'), edges[i + 1][3].GetProperty().GetMaterialProperty('epsilon'))
-                        else:
-                            continue
-                            epsilon = edges[i][3].GetProperty().GetMaterialProperty('epsilon')
-                        if not automesher.min_cellsize_changed:
-                            target_size = automesher.max_cellsize_air / epsilon**0.5
-                        else:
-                            target_size = mesh_res
-                        lines = add_graded_mesh_lines(edges[i][0], edges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
-                        mesh_data.extend(lines)
-                        lines = add_graded_mesh_lines(edges[i][0], edges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
-                        mesh_data.extend(lines)
+                        if hasattr(edges[i][3].GetProperty(),'GetMaterialProperty') and hasattr(edges[i + 1][3].GetProperty(), 'GetMaterialProperty'):
+                            # print('edges[i], epsilon, edges[i + 1], epsilon:', edges[i], edges[i][3].GetProperty().GetMaterialProperty('epsilon'), edges[i + 1], edges[i + 1][3].GetProperty().GetMaterialProperty('epsilon'))
+                            if edges[i][3].GetProperty().GetMaterialProperty('epsilon') != edges[i + 1][3].GetProperty().GetMaterialProperty('epsilon'):
+                                epsilon = max(edges[i][3].GetProperty().GetMaterialProperty('epsilon'), edges[i + 1][3].GetProperty().GetMaterialProperty('epsilon'))
+                            else:
+                                continue
+                                epsilon = edges[i][3].GetProperty().GetMaterialProperty('epsilon')
+                            if not automesher.min_cellsize_changed:
+                                target_size = automesher.max_cellsize_air / epsilon**0.5
+                            else:
+                                target_size = mesh_res
+                            lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
+                            mesh_data.extend(lines)
+                            lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
+                            mesh_data.extend(lines)
+                            
+            # if abs(np.diff([edges[i][0], edges[i + 1][0]])) != 0 and edges[i][0] > np.min(edges[0][0]) and edges[i][0] < np.max(edges[-1][0]):
+            #     if hasattr(edges[i][3], 'GetProperty') and hasattr(edges[i + 1][3], 'GetProperty'):
+            #         if edges[i][3].GetProperty() != edges[i + 1][3].GetProperty():
+            #             if hasattr(edges[i][3].GetProperty(),'GetMaterialProperty') and not hasattr(edges[i + 1][3].GetProperty(), 'GetMaterialProperty') or \
+            #                 hasattr(edges[i + 1][3].GetProperty(),'GetMaterialProperty') and not hasattr(edges[i][3].GetProperty(), 'GetMaterialProperty'):
+            #                 if hasattr(edges[i][3].GetProperty(),'GetMaterialProperty'):
+            #                     epsilon = edges[i][3].GetProperty().GetMaterialProperty('epsilon')
+            #                 elif hasattr(edges[i + 1][3].GetProperty(), 'GetMaterialProperty'):
+            #                     epsilon = edges[i + 1][3].GetProperty().GetMaterialProperty('epsilon')
+            #                 if not automesher.min_cellsize_changed:
+            #                     target_size = automesher.max_cellsize_air / epsilon**0.5
+            #                 else:
+            #                     target_size = mesh_res
+            #                 lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
+            #                 if 2*abs(max(lines)-min(lines)) + target_size < abs(edges[i][0] - edges[i-1][0]):
+            #                     if edges[i][1] < edges[i + 1][1] < edges[i][2] or edges[i][1] > edges[i + 1][1] > edges[i][2] or \
+            #                         edges[i][1] < edges[i + 1][2] < edges[i][2] or edges[i][1] > edges[i + 1][2] > edges[i][2] or\
+            #                         edges[i + 1][1] < edges[i][1] < edges[i + 1][2] or edges[i + 1][1] > edges[i][1] > edges[i + 1][2] or \
+            #                         edges[i + 1][1] < edges[i][2] < edges[i + 1][2] or edges[i + 1][1] > edges[i][2] > edges[i + 1][2]:
+            #                         mesh_data.extend(lines)
+            #                 lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
+            #                 if 2*abs(max(lines)-min(lines)) + target_size < abs(edges[i+1][0] - edges[i][0]):
+            #                     if edges[i][1] < edges[i + 1][1] < edges[i][2] or edges[i][1] > edges[i + 1][1] > edges[i][2] or \
+            #                         edges[i][1] < edges[i + 1][2] < edges[i][2] or edges[i][1] > edges[i + 1][2] > edges[i][2] or\
+            #                         edges[i + 1][1] < edges[i][1] < edges[i + 1][2] or edges[i + 1][1] > edges[i][1] > edges[i + 1][2] or \
+            #                         edges[i + 1][1] < edges[i][2] < edges[i + 1][2] or edges[i + 1][1] > edges[i][2] > edges[i + 1][2]:
+            #                         mesh_data.extend(lines)
+            #                     # mesh_data.extend(lines)
                         
-        # if abs(np.diff([edges[i][0], edges[i + 1][0]])) != 0 and edges[i][0] > np.min(edges[0][0]) and edges[i][0] < np.max(edges[-1][0]):
-        #     if hasattr(edges[i][3], 'GetProperty') and hasattr(edges[i + 1][3], 'GetProperty'):
-        #         if edges[i][3].GetProperty() != edges[i + 1][3].GetProperty():
-        #             if hasattr(edges[i][3].GetProperty(),'GetMaterialProperty') and not hasattr(edges[i + 1][3].GetProperty(), 'GetMaterialProperty') or \
-        #                 hasattr(edges[i + 1][3].GetProperty(),'GetMaterialProperty') and not hasattr(edges[i][3].GetProperty(), 'GetMaterialProperty'):
-        #                 if hasattr(edges[i][3].GetProperty(),'GetMaterialProperty'):
-        #                     epsilon = edges[i][3].GetProperty().GetMaterialProperty('epsilon')
-        #                 elif hasattr(edges[i + 1][3].GetProperty(), 'GetMaterialProperty'):
-        #                     epsilon = edges[i + 1][3].GetProperty().GetMaterialProperty('epsilon')
-        #                 if not automesher.min_cellsize_changed:
-        #                     target_size = automesher.max_cellsize_air / epsilon**0.5
+
+        mesh_map.sort(key=lambda x: x[0])
+        for i in range(len(mesh_map)-1):
+            if direction == 'z':
+                condition  = True
+            else:
+                condition  = (mesh_map[i][8][0] <= mesh_map[i+1][8][0] <= mesh_map[i][8][1] or mesh_map[i][8][0] <= mesh_map[i+1][8][1] <= mesh_map[i][8][1] or mesh_map[i+1] [8][0] <= mesh_map[i][8][0] <= mesh_map[i+1][8][1] or mesh_map[i+1][8][0] <= mesh_map[i][8][1] <= mesh_map[i+1][8][1])
+            if mesh_data and mesh_map[i][0] <= min(mesh_data):
+                continue
+            if mesh_map[i][0] < mesh_map[i+1][0] and mesh_map[i][2] != mesh_map[i+1][2] and condition:
+                if not automesher.min_cellsize_changed:
+                    target_size = automesher.max_cellsize_air / max(mesh_map[i][2], mesh_map[i+1][2])**0.5
+                else:
+                    target_size = mesh_res
+                # target_size = automesher.max_cellsize_air / max(mesh_map[i][2], mesh_map[i+1][2])**0.5
+                lines = add_graded_mesh_lines(automesher, mesh_map[i+1][0], mesh_map[i+1][0]-target_size, automesher.min_cellsize, target_size, 1.3)
+                mesh_data.extend(lines)
+                lines = add_graded_mesh_lines(automesher, mesh_map[i+1][0], mesh_map[i+1][0]+target_size, automesher.min_cellsize, target_size, 1.3)
+                mesh_data.extend(lines)
+            if mesh_map[i+1][1] < mesh_map[i][1] and mesh_map[i][2] != mesh_map[i+1][2] and condition:
+                if not automesher.min_cellsize_changed:
+                    target_size = automesher.max_cellsize_air / max(mesh_map[i][2], mesh_map[i+1][2])**0.5
+                else:
+                    target_size = mesh_res            
+                # target_size = automesher.max_cellsize_air / max(mesh_map[i][2], mesh_map[i+1][2])**0.5
+                lines = add_graded_mesh_lines(automesher, mesh_map[i+1][1], mesh_map[i+1][1]-target_size, automesher.min_cellsize, target_size, 1.3)
+                mesh_data.extend(lines)
+                lines = add_graded_mesh_lines(automesher, mesh_map[i+1][1], mesh_map[i+1][1]+target_size, automesher.min_cellsize, target_size, 1.3)
+                mesh_data.extend(lines)
+
+        # for mesh_maps in mesh_map:
+        #     start, end, epsilon, prop, x_point, xedges, ypoint, yedges, z_boundaries = mesh_maps
+        #     if not automesher.min_cellsize_changed:
+        #         target_size = automesher.max_cellsize_air / mesh_maps[2]**0.5
+        #     else:
+        #         target_size = mesh_res
+        #     if xedges:
+        #         xedges.sort(key=lambda x: x[0])
+        #         for i in range(len(xedges)-1):
+        #             if not mesh_data or xedges[i][0] <= min(mesh_data):
+        #                 continue
+        #             else:
+        #                 lines = add_graded_mesh_lines(automesher, xedges[i][0], xedges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
+        #                 if i > 0 and (abs(max(lines)-min(lines)) + target_size >= xedges[i][0] - xedges[i-1][0] or xedges[i][0] - xedges[i-1][0] == 0):
+        #                     lines_to_remove = [line for line in mesh_data if ((xedges[i-1][0] <= line <= xedges[i][0]) or (xedges[i][0] <= line <= xedges[i-1][0]))]
+        #                     if lines_to_remove:
+        #                         for line in lines_to_remove:
+        #                             if line in mesh_data:
+        #                                 mesh_data.remove(line)
+        #                     # equal_lines = np.linspace(xedges[i-1][0], xedges[i][0], automesher.num_lines)
+        #                     # mesh_data.extend(equal_lines)                    
+        #                 else:   
+        #                     mesh_data.extend(lines)
+        #                 lines = add_graded_mesh_lines(automesher, xedges[i][0], xedges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
+        #                 if abs(max(lines)-min(lines)) + target_size >= xedges[i+1][0] - xedges[i][0] or xedges[i+1][0] - xedges[i][0] == 0:
+        #                     lines_to_remove = [line for line in mesh_data if ((xedges[i][0] <= line <= xedges[i+1][0]) or (xedges[i+1][0] <= line <= xedges[i][0]))]
+        #                     if lines_to_remove:
+        #                         for line in lines_to_remove:
+        #                             mesh_data.remove(line)    
+        #                     # equal_lines = np.linspace(xedges[i][0], xedges[i+1][0], automesher.num_lines)
+        #                     # mesh_data.extend(equal_lines)               
         #                 else:
-        #                     target_size = mesh_res
-        #                 lines = add_graded_mesh_lines(edges[i][0], edges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
-        #                 if 2*abs(max(lines)-min(lines)) + target_size < abs(edges[i][0] - edges[i-1][0]):
-        #                     if edges[i][1] < edges[i + 1][1] < edges[i][2] or edges[i][1] > edges[i + 1][1] > edges[i][2] or \
-        #                         edges[i][1] < edges[i + 1][2] < edges[i][2] or edges[i][1] > edges[i + 1][2] > edges[i][2] or\
-        #                         edges[i + 1][1] < edges[i][1] < edges[i + 1][2] or edges[i + 1][1] > edges[i][1] > edges[i + 1][2] or \
-        #                         edges[i + 1][1] < edges[i][2] < edges[i + 1][2] or edges[i + 1][1] > edges[i][2] > edges[i + 1][2]:
-        #                         mesh_data.extend(lines)
-        #                 lines = add_graded_mesh_lines(edges[i][0], edges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
-        #                 if 2*abs(max(lines)-min(lines)) + target_size < abs(edges[i+1][0] - edges[i][0]):
-        #                     if edges[i][1] < edges[i + 1][1] < edges[i][2] or edges[i][1] > edges[i + 1][1] > edges[i][2] or \
-        #                         edges[i][1] < edges[i + 1][2] < edges[i][2] or edges[i][1] > edges[i + 1][2] > edges[i][2] or\
-        #                         edges[i + 1][1] < edges[i][1] < edges[i + 1][2] or edges[i + 1][1] > edges[i][1] > edges[i + 1][2] or \
-        #                         edges[i + 1][1] < edges[i][2] < edges[i + 1][2] or edges[i + 1][1] > edges[i][2] > edges[i + 1][2]:
-        #                         mesh_data.extend(lines)
-        #                     # mesh_data.extend(lines)
-                    
-
-    mesh_map.sort(key=lambda x: x[0])
-    for i in range(len(mesh_map)-1):
-        if direction == 'z':
-            condition  = True
-        else:
-            condition  = (mesh_map[i][8][0] <= mesh_map[i+1][8][0] <= mesh_map[i][8][1] or mesh_map[i][8][0] <= mesh_map[i+1][8][1] <= mesh_map[i][8][1] or mesh_map[i+1] [8][0] <= mesh_map[i][8][0] <= mesh_map[i+1][8][1] or mesh_map[i+1][8][0] <= mesh_map[i][8][1] <= mesh_map[i+1][8][1])
-        if mesh_data and mesh_map[i][0] <= min(mesh_data):
-            continue
-        if mesh_map[i][0] < mesh_map[i+1][0] and mesh_map[i][2] != mesh_map[i+1][2] and condition:
-            if not automesher.min_cellsize_changed:
-                target_size = automesher.max_cellsize_air / max(mesh_map[i][2], mesh_map[i+1][2])**0.5
-            else:
-                target_size = mesh_res
-            # target_size = automesher.max_cellsize_air / max(mesh_map[i][2], mesh_map[i+1][2])**0.5
-            lines = add_graded_mesh_lines(mesh_map[i+1][0], mesh_map[i+1][0]-target_size, automesher.min_cellsize, target_size, 1.3)
-            mesh_data.extend(lines)
-            lines = add_graded_mesh_lines(mesh_map[i+1][0], mesh_map[i+1][0]+target_size, automesher.min_cellsize, target_size, 1.3)
-            mesh_data.extend(lines)
-        if mesh_map[i+1][1] < mesh_map[i][1] and mesh_map[i][2] != mesh_map[i+1][2] and condition:
-            if not automesher.min_cellsize_changed:
-                target_size = automesher.max_cellsize_air / max(mesh_map[i][2], mesh_map[i+1][2])**0.5
-            else:
-                target_size = mesh_res            
-            # target_size = automesher.max_cellsize_air / max(mesh_map[i][2], mesh_map[i+1][2])**0.5
-            lines = add_graded_mesh_lines(mesh_map[i+1][1], mesh_map[i+1][1]-target_size, automesher.min_cellsize, target_size, 1.3)
-            mesh_data.extend(lines)
-            lines = add_graded_mesh_lines(mesh_map[i+1][1], mesh_map[i+1][1]+target_size, automesher.min_cellsize, target_size, 1.3)
-            mesh_data.extend(lines)
-
-    # for mesh_maps in mesh_map:
-    #     start, end, epsilon, prop, x_point, xedges, ypoint, yedges, z_boundaries = mesh_maps
-    #     if not automesher.min_cellsize_changed:
-    #         target_size = automesher.max_cellsize_air / mesh_maps[2]**0.5
-    #     else:
-    #         target_size = mesh_res
-    #     if xedges:
-    #         xedges.sort(key=lambda x: x[0])
-    #         for i in range(len(xedges)-1):
-    #             if not mesh_data or xedges[i][0] <= min(mesh_data):
-    #                 continue
-    #             else:
-    #                 lines = add_graded_mesh_lines(xedges[i][0], xedges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
-    #                 if i > 0 and (abs(max(lines)-min(lines)) + target_size >= xedges[i][0] - xedges[i-1][0] or xedges[i][0] - xedges[i-1][0] == 0):
-    #                     lines_to_remove = [line for line in mesh_data if ((xedges[i-1][0] <= line <= xedges[i][0]) or (xedges[i][0] <= line <= xedges[i-1][0]))]
-    #                     if lines_to_remove:
-    #                         for line in lines_to_remove:
-    #                             if line in mesh_data:
-    #                                 mesh_data.remove(line)
-    #                     # equal_lines = np.linspace(xedges[i-1][0], xedges[i][0], automesher.num_lines)
-    #                     # mesh_data.extend(equal_lines)                    
-    #                 else:   
-    #                     mesh_data.extend(lines)
-    #                 lines = add_graded_mesh_lines(xedges[i][0], xedges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
-    #                 if abs(max(lines)-min(lines)) + target_size >= xedges[i+1][0] - xedges[i][0] or xedges[i+1][0] - xedges[i][0] == 0:
-    #                     lines_to_remove = [line for line in mesh_data if ((xedges[i][0] <= line <= xedges[i+1][0]) or (xedges[i+1][0] <= line <= xedges[i][0]))]
-    #                     if lines_to_remove:
-    #                         for line in lines_to_remove:
-    #                             mesh_data.remove(line)    
-    #                     # equal_lines = np.linspace(xedges[i][0], xedges[i+1][0], automesher.num_lines)
-    #                     # mesh_data.extend(equal_lines)               
-    #                 else:
-    #                     mesh_data.extend(lines)
+        #                     mesh_data.extend(lines)
 
 
 

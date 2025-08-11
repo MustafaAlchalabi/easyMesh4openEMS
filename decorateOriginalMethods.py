@@ -16,7 +16,7 @@ def decorate_original_method(method, mesh_dict):
         return primitive
     return decorated_method
 
-class Material_Copy:
+class MaterialWrapper:
     def __init__(self, original_material, primitives_mesh_setup):
         self.original_material = original_material
         self._mesh_dict = primitives_mesh_setup
@@ -56,23 +56,23 @@ class Material_Copy:
     def __getattr__(self, name):
         return getattr(self.original_material, name)
 
-class CSX_Copy:
+class CSXWrapper:
     def __init__(self, original_csx, primitives_mesh_setup):
         self.original_csx = original_csx
         self._mesh_dict = primitives_mesh_setup
 
     def AddMaterial(self, *args, **kwargs):
         material = self.original_csx.AddMaterial(*args, **kwargs)
-        return Material_Copy(material, self._mesh_dict)
+        return MaterialWrapper(material, self._mesh_dict)
     
     def AddMetal(self, *args, **kwargs):
         metal = self.original_csx.AddMetal(*args, **kwargs)
-        return Material_Copy(metal, self._mesh_dict)
+        return MaterialWrapper(metal, self._mesh_dict)
 
     def __getattr__(self, name):
         return getattr(self.original_csx, name)
         
-class FDTD_copy:
+class FDTDWrapper:
     def __init__(self, original_FDTD, primitives_mesh_setup):
         self.original_FDTD = original_FDTD
         self._mesh_dict = primitives_mesh_setup
