@@ -488,7 +488,6 @@ def mesh_small_gaps(automesher, unique_edges, mesh_res, max_res, num_lines, mesh
         for i in range(len(unique_edges) - 1):
             if abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) <= mesh_res and abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) >= max_res:
                 z_in_range = [z for z in mesh_data[2] if unique_edges[i][0] <= z <= unique_edges[i + 1][0]]
-                print('z_in_range:', z_in_range)
                 for z in z_in_range:
                     mesh_data[2] = list(mesh_data[2])  
                     mesh_data[2].remove(z)
