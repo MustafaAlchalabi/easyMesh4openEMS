@@ -148,7 +148,6 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
             mean_resolution = []
             skipping_list = [False] * len(automesher.mesh_with_max_cell_size[1])
             for idx, (start, end) in enumerate(automesher.mesh_with_max_cell_size[1]):
-                print('Start,stop:', start, end)
                 lines_to_add_in_lines_in_range = [line for line in lines if start < line < end]
                 if lines_to_add_in_lines_in_range:
                     lines_to_add_in_lines_in_range = sorted(set(lines_to_add_in_lines_in_range))
@@ -206,18 +205,39 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
     #         lines[2][0] = list(lines[2][0])  # Convert to list
     #         lines[2][0].extend(SmoothMeshLines([lines[2][0][i], lines[2][0][i + 1]], automesher.mesh_res/2, 1.3))
 
-    # # Check lines between x edges
-    # for i in range(len(x_edges) - 1):
-    #     if abs(x_edges[i][0] - x_edges[i + 1][0]) > automesher.mesh_res:
-    #         lines_in_range = [line for line in mesh_data[0] if x_edges[i][0] < line < x_edges[i + 1][0]]
-    #         if not lines_in_range:
-    #             mesh_data[0] = np.append(mesh_data[0], np.linspace(x_edges[i][0], x_edges[i + 1][0], automesher.num_lines))
-    # # Check lines between y edges
-    # for i in range(len(y_edges) - 1):
-    #     if abs(y_edges[i][0] - y_edges[i + 1][0]) > automesher.mesh_res:
-    #         lines_in_range = [line for line in mesh_data[1] if y_edges[i][0] < line < y_edges[i + 1][0]]
-    #         if not lines_in_range:
-    #             mesh_data[1] = np.append(mesh_data[1], np.linspace(y_edges[i][0], y_edges[i + 1][0], automesher.num_lines))
+    # Check lines between x edges
+    for i in range(len(x_edges) - 1):
+        if abs(x_edges[i][0] - x_edges[i + 1][0]) > automesher.mesh_res:
+            lines_in_range = [line for line in mesh_data[0] if x_edges[i][0] < line < x_edges[i + 1][0]]
+            lines_in_range = sorted(set(lines_in_range))  # Ensure unique lines 
+            if not lines_in_range or len(lines_in_range) < automesher.num_lines-2:
+                lines_to_add = np.linspace(x_edges[i][0], x_edges[i + 1][0], automesher.num_lines)
+                lines_to_add = list(lines_to_add)   
+                mesh_data[0].extend(lines_to_add)
+
+    # Check lines between y edges
+    for i in range(len(y_edges) - 1):
+        if abs(y_edges[i][0] - y_edges[i + 1][0]) > automesher.mesh_res:
+            lines_in_range = [line for line in mesh_data[1] if y_edges[i][0] < line < y_edges[i + 1][0]]
+            lines_in_range = sorted(set(lines_in_range))  # Ensure unique lines
+            if not lines_in_range or len(lines_in_range) < automesher.num_lines-2:
+                lines_to_add = np.linspace(y_edges[i][0], y_edges[i + 1][0], automesher.num_lines)
+                lines_to_add = list(lines_to_add)   
+                mesh_data[1].extend(lines_to_add)
+
+    # Check lines between z edges
+    for i in range(len(z_coords) - 1):
+        if abs(z_coords[i][0] - z_coords[i + 1][0]) > automesher.mesh_res_z:
+            lines_in_range = [line for line in mesh_data[2] if z_coords[i][0] < line < z_coords[i + 1][0]]
+            lines_in_range = sorted(set(lines_in_range))  # Ensure unique lines
+            if not lines_in_range:
+                lines_to_add = np.linspace(z_coords[i][0], z_coords[i + 1][0], automesher.num_lines)
+                mesh_data[2].extend(lines_to_add.tolist())
+            if len(lines_in_range) < automesher.num_lines-2:
+                lines_to_add = np.linspace(z_coords[i][0], z_coords[i + 1][0], automesher.num_lines)
+                if lines_in_range:
+                    lines_to_add = list(lines_to_add)
+                mesh_data[2].extend(lines_to_add)
 
 #     automesher.global_mesh_setup:'boundary_distance': [ 1000, 1000, 1000, 1000, 1000, 1000 ], # value, auto or None
     graded_lines_y = []
@@ -265,7 +285,7 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
     # if automesher.global_mesh_setup.get('min_cellsize', None) is not None or automesher.min_cellsize_changed:
     mesh_data[0] = process_mesh_data(mesh_data[0], automesher.min_cellsize, unique_xedges)
     mesh_data[1] = process_mesh_data(mesh_data[1], automesher.min_cellsize, unique_yedges)
-    mesh_data[2] = process_mesh_data(mesh_data[2], automesher.min_cellsize, z_coords)
+    mesh_data[2] = process_mesh_data(mesh_data[2], automesher.min_cellsize_z, z_coords)
 
 def process_mesh_data(mesh_data, min_cellsize, unique_edges):
     mesh_data = sorted(mesh_data)

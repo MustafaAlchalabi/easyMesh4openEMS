@@ -41,7 +41,6 @@ class Automesher:
         self.csx = CSX
         grid = self.csx.GetGrid()
         # unique_primitives = CSX.GetAllPrimitives()
-        # print('unique_primitives:', unique_primitives)
         unique_primitives = list(self.primitives_mesh_setup.keys())
         # unique_primitives.extend(list(self.primitives_mesh_setup.keys()))
 
@@ -101,7 +100,7 @@ class Automesher:
         # Get unique vertical and horizontal edges
         unique_xedges, unique_yedges = geometryUtils.get_unique_edges(x_edges), geometryUtils.get_unique_edges(y_edges)
 
-        meshingUtils.adjust_mesh_parameters(self, unique_xedges, unique_yedges, diagonal_edges, mesh_data)
+        meshingUtils.adjust_mesh_parameters(self, unique_xedges, unique_yedges, z_coords, diagonal_edges, mesh_data)
         
         # Sort x and y coordinates
         sorted_x, sorted_y = np.sort(x_coords), np.sort(y_coords)        
@@ -149,9 +148,11 @@ class Automesher:
         meshingUtils.handle_circular_segments(self, polygon, mesh_data)
 
         # Add Ports to the mesh_data
-        mesh_data[0] = meshingUtils.add_ports_to_mesh_data(self, mesh_data[0], x_edges, 'x')
-        mesh_data[1] = meshingUtils.add_ports_to_mesh_data(self, mesh_data[1], y_edges, 'y')
-        mesh_data[2] = meshingUtils.add_ports_to_mesh_data(self, mesh_data[2], z_coords, 'z')
+        mesh_data[0] = meshingUtils.add_ports_to_mesh_data(self, mesh_data[0], x_edges, self.min_cellsize, 'x')
+        mesh_data[1] = meshingUtils.add_ports_to_mesh_data(self, mesh_data[1], y_edges, self.min_cellsize, 'y')
+        mesh_data[2] = meshingUtils.add_ports_to_mesh_data(self, mesh_data[2], z_coords, self.min_cellsize_z, 'z')
+
+        z_coords.sort(key=lambda edge: edge[0])
 
         # Smooth and process the mesh lines
         meshProcessing.smooth_and_process_mesh_lines(self, mesh_data, polygon, grid, x_edges, y_edges, z_coords, unique_xedges, unique_yedges, z_coords, mesh_map) 
