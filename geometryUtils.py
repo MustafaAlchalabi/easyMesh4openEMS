@@ -533,10 +533,12 @@ def metal_edge(automesher, edges, x_coords, y_coords, mesh_data, direction):
         #                     mesh_data.append(edges[i][0]+mer[0])
         #                     mesh_data.append(edges[i][0]+mer[1])
     elif automesher.global_mesh_setup.get('smooth_metal_edge', False) == 'extra_lines':
-        for i in range(len(edges)-1):  # Iterate over a copy of the list
-            edge = edges[i]
+        for edge in edges:  # Iterate over a copy of the list
             if hasattr(edge[3], 'GetProperty') and isinstance(edge[3].GetProperty(), CSProperties.CSPropMetal) or \
                 (hasattr(edge[3],'priority') and isinstance(edge[3],openEMS.ports.MSLPort)):
-            
-                mesh_data.append(edges[i][0] - automesher.min_cellsize/2)
-                mesh_data.append(edges[i][0] + automesher.min_cellsize/2)
+                if edge[0] == min(edges, key=lambda e: e[0])[0]:
+                    continue  
+                if edge[0] == max(edges, key=lambda e: e[0])[0]:
+                    continue 
+                mesh_data.append(edge[0] - automesher.min_cellsize/2)
+                mesh_data.append(edge[0] + automesher.min_cellsize/2)
