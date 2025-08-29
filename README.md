@@ -83,6 +83,7 @@ global_mesh_setup = {
     # Heuristics/toggles
     'smooth_metal_edge': 'one_third_two_thirds', # useful for thin metal layers, Options: False, 'one_third_two_thirds', 'extra_lines'
     'use_circle_detection': False,               # detect circles for better angular resolution
+    'handle_closely_placed_edges': True,  # if True, then mesher will try to handle close placed edges by merging them
 
 }
 
