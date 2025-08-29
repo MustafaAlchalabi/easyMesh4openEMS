@@ -7,7 +7,7 @@ from openEMS import openEMS
 from openEMS.physical_constants import * 
 
 # Add a custom path for easyMesher
-sys.path.append('/home/opt/easyMesh4openEMS')
+sys.path.append('/home/mustafa_alchalabi/opt/easyMesh4openEMS')
 # Import functions for automatic mesh generation and optimization
 from easyMesher import GenerateMesh, enhance_csx_for_auto_mesh, enhance_FDTD_for_auto_mesh
 
@@ -28,10 +28,10 @@ f_min = 1.25e9
 f_max = 2.6e9  
 
 # Initialize the FDTD simulator
-FDTD = openEMS(EndCriteria=1e-4)           # Set the simulation end criteria at -40 dB
+FDTD = openEMS(EndCriteria=1e-4, NrTS=1e5)           # Set the simulation end criteria at -40 dB or 1e5 time steps
 FDTD.SetGaussExcite(f_max / 2, f_max / 2)  # Gaussian excitation with center frequency
 # Set boundary conditions: PML (Perfectly Matched Layer) and PEC (Perfect Electric Conductor)
-FDTD.SetBoundaryCond(['PML_8', 'PML_8', 'PML_8', 'PML_8', 'PEC', 'PML_8'])
+FDTD.SetBoundaryCond(['MUR', 'MUR', 'MUR', 'MUR', 'PEC', 'MUR'])
 
 # Create the ContinuousStructure (CSX) for geometry definition
 CSX = ContinuousStructure()
@@ -48,7 +48,7 @@ global_mesh_setup = {
     'stop_frequency': f_max,                                              
     'smooth_metal_edge': 'one_third_two_thirds',                          # useful for thin metal layers, Options: False, 'one_third_two_thirds', 'extra_lines'
     'mesh_resolution': 'medium',                                          # Options: 'low', 'medium', 'high', 'very_high'
-    'boundary_distance': ['auto', 'auto', 'auto', 'auto', None, 'auto'],  # Options: value, 'auto', or None
+    'boundary_distance': ['auto', 'auto', 'auto', 'auto', 'auto', None],  # Options: value, 'auto', or None
 }
 
 # Enhance the CSX and FDTD objects for automatic mesh optimization
@@ -63,7 +63,7 @@ substrate.AddBox(start, stop, priority=10)
 
 # Add the patch to the geometry
 pec = CSX.AddMetal('patch')  
-pec.SetAttributeValue('setup', '5') 
+# pec.SetAttributeValue('setup', '5') 
 start = [-patch_length, -patch_length, substrate_thickness]  
 stop = [patch_length, patch_length, substrate_thickness]  
 pec.AddBox(start, stop, priority=100)

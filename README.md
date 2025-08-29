@@ -175,7 +175,7 @@ Wraps your `FDTD` so **ports** (`AddLumpedPort`, `AddWaveGuidePort`, `AddRectWav
 
 ## How it works 
 
-take a look for the examples in the Tutorials folder
+Take a look for the examples in the Tutorials folder
 
 <!-- 1. **Collect** current grid lines (if any) and existing geometry; clear the grid temporarily.
 2. **Parse** primitives/ports into edge sets (vertical, horizontal, diagonal) and z‑boundaries.

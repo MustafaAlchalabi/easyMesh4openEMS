@@ -1,5 +1,8 @@
 from CSXCAD.SmoothMeshLines import SmoothMeshLines
 from openEMS.physical_constants import C0
+from CSXCAD import CSPrimitives, CSProperties
+from openEMS import ports
+import openEMS
 import numpy as np
 import geometryUtils
 
@@ -86,59 +89,60 @@ def adjust_mesh_parameters(automesher, unique_xedges, unique_yedges, z_coords, d
             distance_smaller_than_min_cellsize_z = []
             automesher.min_cellsize_changed = False
             automesher.min_cellsize_z_changed = False
+            automesher.min_cellsize_z = automesher.min_cellsize
+            automesher.mesh_res_z = automesher.mesh_res
+            automesher.max_res_z = automesher.max_res
+            # if automesher.global_mesh_setup.get('min_cellsize', None) is None:
+            for i in range(len(unique_xedges) - 1):
+                condition1 = abs(unique_xedges[i + 1][0] - unique_xedges[i][0]) <= automesher.min_cellsize and abs(unique_xedges[i + 1][0] - unique_xedges[i][0]) >= 1.5
+                condition2 = abs(unique_xedges[i + 1][0] - unique_xedges[i][0]) > automesher.min_cellsize and abs(unique_xedges[i + 1][0] - unique_xedges[i][0]) < automesher.max_res
+                if condition1 or condition2:
+                    distance_smaller_than_min_cellsize.append([abs(unique_xedges[i + 1][0] - unique_xedges[i][0]), unique_xedges[i][0], unique_xedges[i + 1][0]])
+            for i in range(len(unique_yedges) - 1):
+                condition3 = abs(unique_yedges[i + 1][0] - unique_yedges[i][0]) <= automesher.min_cellsize and abs(unique_yedges[i + 1][0] - unique_yedges[i][0]) >= 1.5
+                condition4 = abs(unique_yedges[i + 1][0] - unique_yedges[i][0]) > automesher.min_cellsize and abs(unique_yedges[i + 1][0] - unique_yedges[i][0]) < automesher.max_res           
+                if condition3 or condition4:
+                    distance_smaller_than_min_cellsize.append([abs(unique_yedges[i + 1][0] - unique_yedges[i][0]), unique_yedges[i][0], unique_yedges[i + 1][0]])
+            for i in range(len(z_coords) - 1):
+                condition5 = abs(z_coords[i + 1][0] - z_coords[i][0]) <= automesher.min_cellsize and abs(z_coords[i + 1][0] - z_coords[i][0]) >= 1.5
+                condition6 = abs(z_coords[i + 1][0] - z_coords[i][0]) > automesher.min_cellsize and abs(z_coords[i + 1][0] - z_coords[i][0]) < automesher.max_res
+                if condition5 or condition6:
+                    # distance_smaller_than_min_cellsize.append([abs(z_coords[i + 1][0] - z_coords[i][0]), z_coords[i][0], z_coords[i + 1][0]])
+                    distance_smaller_than_min_cellsize_z.append([abs(z_coords[i + 1][0] - z_coords[i][0]), z_coords[i][0], z_coords[i + 1][0]])
 
-            if automesher.global_mesh_setup.get('min_cellsize', None) is None:
-                for i in range(len(unique_xedges) - 1):
-                    condition1 = abs(unique_xedges[i + 1][0] - unique_xedges[i][0]) <= automesher.min_cellsize and abs(unique_xedges[i + 1][0] - unique_xedges[i][0]) >= 1.5
-                    condition2 = abs(unique_xedges[i + 1][0] - unique_xedges[i][0]) > automesher.min_cellsize and abs(unique_xedges[i + 1][0] - unique_xedges[i][0]) < automesher.max_res
-                    if condition1 or condition2:
-                        distance_smaller_than_min_cellsize.append([abs(unique_xedges[i + 1][0] - unique_xedges[i][0]), unique_xedges[i][0], unique_xedges[i + 1][0]])
-                for i in range(len(unique_yedges) - 1):
-                    condition3 = abs(unique_yedges[i + 1][0] - unique_yedges[i][0]) <= automesher.min_cellsize and abs(unique_yedges[i + 1][0] - unique_yedges[i][0]) >= 1.5
-                    condition4 = abs(unique_yedges[i + 1][0] - unique_yedges[i][0]) > automesher.min_cellsize and abs(unique_yedges[i + 1][0] - unique_yedges[i][0]) < automesher.max_res           
-                    if condition3 or condition4:
-                        distance_smaller_than_min_cellsize.append([abs(unique_yedges[i + 1][0] - unique_yedges[i][0]), unique_yedges[i][0], unique_yedges[i + 1][0]])
-                for i in range(len(z_coords) - 1):
-                    condition5 = abs(z_coords[i + 1][0] - z_coords[i][0]) <= automesher.min_cellsize and abs(z_coords[i + 1][0] - z_coords[i][0]) >= 1.5
-                    condition6 = abs(z_coords[i + 1][0] - z_coords[i][0]) > automesher.min_cellsize and abs(z_coords[i + 1][0] - z_coords[i][0]) < automesher.max_res
-                    if condition5 or condition6:
-                        # distance_smaller_than_min_cellsize.append([abs(z_coords[i + 1][0] - z_coords[i][0]), z_coords[i][0], z_coords[i + 1][0]])
-                        distance_smaller_than_min_cellsize_z.append([abs(z_coords[i + 1][0] - z_coords[i][0]), z_coords[i][0], z_coords[i + 1][0]])
+            if distance_smaller_than_min_cellsize_z:
+                n = min(distance_smaller_than_min_cellsize_z)
+                lines = np.linspace(n[1], n[2], automesher.num_lines)
+                ds = abs(np.min(np.diff(lines)))
+                if ds < automesher.min_cellsize:
+                    automesher.min_cellsize_z = ds
+                    automesher.min_cellsize_z_changed = True
+                    automesher.mesh_res_z = round(ds * (automesher.num_lines - 1))
+                    automesher.max_res_z = automesher.min_cellsize_z + 0.25 * automesher.min_cellsize_z       
 
-                if distance_smaller_than_min_cellsize_z:
-                    n = min(distance_smaller_than_min_cellsize_z)
-                    lines = np.linspace(n[1], n[2], automesher.num_lines)
-                    ds = abs(np.min(np.diff(lines)))
-                    if ds < automesher.min_cellsize:
-                        automesher.min_cellsize_z = ds
-                        automesher.min_cellsize_z_changed = True
-                        automesher.mesh_res_z = round(ds * (automesher.num_lines - 1))
-                        automesher.max_res_z = automesher.min_cellsize_z + 0.25 * automesher.min_cellsize_z       
-                if not distance_smaller_than_min_cellsize_z:
-                    automesher.min_cellsize_z = automesher.min_cellsize
-                    automesher.mesh_res_z = automesher.mesh_res
-                    automesher.max_res_z = automesher.max_res
-                
-                if distance_smaller_than_min_cellsize:
-                    n = min(distance_smaller_than_min_cellsize)
-                    lines = np.linspace(n[1], n[2], automesher.num_lines)
-                    ds = abs(np.min(np.diff(lines)))
-                    if ds < automesher.min_cellsize:
-                        automesher.min_cellsize = ds
-                        automesher.min_cellsize_changed = True
-                        automesher.mesh_res = round(ds * (automesher.num_lines - 1))
-                        automesher.max_res = automesher.min_cellsize + 0.25 * automesher.min_cellsize
-                        epsilon = None
-                        for primitive in automesher.primitives_mesh_setup.keys():
-                            if hasattr(primitive, 'GetProperty') and hasattr(primitive.GetProperty(), 'GetMaterialProperty') and primitive.GetProperty().GetMaterialProperty('epsilon') > 1:
-                                current_epsilon = primitive.GetProperty().GetMaterialProperty('epsilon')
-                                if epsilon is None or current_epsilon > epsilon:
-                                    epsilon = current_epsilon
-                        if epsilon:
-                            automesher.max_cellsize = automesher.max_cellsize / (epsilon ** 0.5)
+            if distance_smaller_than_min_cellsize:
+                n = min(distance_smaller_than_min_cellsize)
+                lines = np.linspace(n[1], n[2], automesher.num_lines)
+                ds = abs(np.min(np.diff(lines)))
+                if ds < automesher.min_cellsize:
+                    automesher.min_cellsize = ds
+                    automesher.min_cellsize_changed = True
+                    automesher.mesh_res = round(ds * (automesher.num_lines - 1))
+                    automesher.max_res = automesher.min_cellsize + 0.25 * automesher.min_cellsize
+                    epsilon = None
+                    for primitive in automesher.primitives_mesh_setup.keys():
+                        if hasattr(primitive, 'GetProperty') and hasattr(primitive.GetProperty(), 'GetMaterialProperty') and primitive.GetProperty().GetMaterialProperty('epsilon') > 1:
+                            current_epsilon = primitive.GetProperty().GetMaterialProperty('epsilon')
+                            if epsilon is None or current_epsilon > epsilon:
+                                epsilon = current_epsilon
+                    if epsilon:
+                        automesher.max_cellsize = automesher.max_cellsize / (epsilon ** 0.5)
                 # if automesher.max_cellsize == automesher.mesh_res:
                 #     automesher.max_cellsize = automesher.mesh_res * 2
-
+            if automesher.global_mesh_setup.get('min_cellsize', None) is not None:
+                automesher.min_cellsize = automesher.global_mesh_setup.get('min_cellsize')
+                automesher.max_res = automesher.min_cellsize + 0.25 * automesher.min_cellsize
+                
 
             if not automesher.min_cellsize_changed:
                 check_max_resolution(automesher, diagonal_edges, unique_xedges, unique_yedges, automesher.mesh_res, automesher.max_res, mesh_data)
@@ -191,30 +195,30 @@ def get_mesh_map(automesher):
 
     return mesh_map
 
-def handle_otheredges(automesher, otheredges, unique_xedges, unique_yedges, mesh_res, max_res, mesh_data, direction, check_max_resolution=False):
+def handle_diagonal_edges(automesher, otheredges, x_edges, y_edges, mesh_data, direction, check_max_resolution=False):
     diagonal_edges = otheredges
     if not check_max_resolution:
         other_edges_in_range = []
         if direction == 'x':
-            unique_edges = remove_close_unique_edges(automesher, unique_xedges, max_res, direction)
+            unique_edges = remove_close_edges(automesher, x_edges, direction, return_edges=True)
             unique_edges = [unique_xedges[0] for unique_xedges in unique_edges]
 
         if direction == 'y':
-            unique_edges = remove_close_unique_edges(automesher, unique_yedges, max_res, direction)
+            unique_edges = remove_close_edges(automesher, y_edges, direction, return_edges=True)
             unique_edges = [unique_yedges[0] for unique_yedges in unique_edges]
-        for edge in diagonal_edges:            
+        for edge in diagonal_edges:
             if direction == 'x':
                 start , end = edge[0], edge[1]
                 other_edges_in_range = [other_edge for other_edge in diagonal_edges if (start <= other_edge[0] <= end or start <= other_edge[1] <= end or start >= other_edge[0] >= end or start >= other_edge[1] >= end)]
             if direction == 'y':
                 start , end = edge[2], edge[3]
                 other_edges_in_range = [other_edge for other_edge in diagonal_edges if (start <= other_edge[2] <= end or start <= other_edge[3] <= end or start >= other_edge[2] >= end or start >= other_edge[3] >= end)]
-            x_start, x_end, y_start, y_end, prim = edge
+            # start, end, start, end, prim = edge
             lines_in_range = [direction for direction in unique_edges if start <= direction <= end or start >= direction >= end]
 
             if not other_edges_in_range:
-                alpha = np.atan(abs((y_end-y_start))/abs((x_end-x_start)))
-                resolution = mesh_res * np.cos(alpha)
+                alpha = np.atan(abs((end-start))/abs((end-start)))
+                resolution = automesher.mesh_res * np.cos(alpha)
                 resolution = automesher.max_res if resolution < automesher.max_res else resolution
                 if not lines_in_range:
                     lines=SmoothMeshLines([start, end], resolution)    
@@ -223,14 +227,14 @@ def handle_otheredges(automesher, otheredges, unique_xedges, unique_yedges, mesh
                     lines=SmoothMeshLines(lines_in_range, resolution)
                 mesh_data.extend(lines)
             if other_edges_in_range:
-                alpha = np.round(np.rad2deg(np.atan(abs((y_end-y_start))/abs((x_end-x_start)))),2)
+                alpha = np.round(np.rad2deg(np.atan(abs((end-start))/abs((end-start)))),2)
                 if direction == 'x':
                     other_edges_in_range_here = [other_edge[0:2] for other_edge in other_edges_in_range]
-                    resolution = mesh_res * np.cos(np.deg2rad(alpha))
+                    resolution = automesher.mesh_res * np.cos(np.deg2rad(alpha))
                     other_edges_in_range_here_all_coords = [other_edge for other_edge in other_edges_in_range if (start <= other_edge[0] <= end or start <= other_edge[1] <= end or start >= other_edge[0] >= end or start >= other_edge[1] >= end)]
                 if direction == 'y':
                     other_edges_in_range_here = [other_edge[2:4] for other_edge in other_edges_in_range]
-                    resolution = mesh_res * np.sin(np.deg2rad(alpha))
+                    resolution = automesher.mesh_res * np.sin(np.deg2rad(alpha))
                     other_edges_in_range_here_all_coords = [other_edge for other_edge in other_edges_in_range if (start <= other_edge[2] <= end or start <= other_edge[3] <= end or start >= other_edge[2] >= end or start >= other_edge[3] >= end)]
                 min_line = np.min([start,end, np.min(np.min(other_edges_in_range_here))])
                 max_line = np.max([start,end, np.max(np.max(other_edges_in_range_here))])
@@ -253,7 +257,7 @@ def handle_otheredges(automesher, otheredges, unique_xedges, unique_yedges, mesh
                             lines_in_mesh_data_range = [line for line in mesh_data if edge[0] <= line <= edge[1] or edge[0] >= line >= edge[1]]
                             for line in lines_in_mesh_data_range:
                                 mesh_data.remove(line)
-                            resolution = mesh_res * np.cos(np.deg2rad(alpha_val))
+                            resolution = automesher.mesh_res * np.cos(np.deg2rad(alpha_val))
                             resolution = automesher.max_res if resolution < automesher.max_res else resolution
                             xlines = SmoothMeshLines([edge[0], edge[1]], resolution)
                             mesh_data.extend(xlines)
@@ -263,7 +267,7 @@ def handle_otheredges(automesher, otheredges, unique_xedges, unique_yedges, mesh
                             lines_in_mesh_data_range = [line for line in mesh_data if edge[2] <= line <= edge[3] or edge[2] >= line >= edge[3]]
                             for line in lines_in_mesh_data_range:
                                 mesh_data.remove(line)
-                            resolution = mesh_res * np.sin(np.deg2rad(alpha_val))
+                            resolution = automesher.mesh_res * np.sin(np.deg2rad(alpha_val))
                             resolution = automesher.max_res if resolution < automesher.max_res else resolution
                             ylines = SmoothMeshLines([edge[2], edge[3]], abs(resolution))
                             mesh_data.extend(ylines)
@@ -287,7 +291,9 @@ def handle_otheredges(automesher, otheredges, unique_xedges, unique_yedges, mesh
             norm_product = np.linalg.norm([line1[1] - line1[0], line1[3] - line1[2]]) * np.linalg.norm([line2[1] - line2[0], line2[3] - line2[2]])
             cos_angle = np.clip(dot_product / norm_product, -1.0, 1.0)
             angle = np.round(np.rad2deg(np.arccos(cos_angle)), 2)
-            if diagonal_edges[i][4].GetElevation() != diagonal_edges[j][4].GetElevation():
+            # if diagonal_edges[i][4].GetElevation() != diagonal_edges[j][4].GetElevation():
+            #     continue
+            if abs(diagonal_edges[i][4].GetElevation() - diagonal_edges[j][4].GetElevation()) < automesher.mesh_res and abs(diagonal_edges[i][4].GetElevation() - diagonal_edges[j][4].GetElevation()) > 0:
                 continue
             if diagonal_edges[i][4] == diagonal_edges[j][4] and (angle not in [0, 180]):
                 if not (np.isclose(angle, 0, atol=10) or np.isclose(angle, 180, atol=10)):
@@ -313,11 +319,11 @@ def handle_otheredges(automesher, otheredges, unique_xedges, unique_yedges, mesh
             q1 = np.array([line2[0], line2[2]])  # (x1, y1)
             q2 = np.array([line2[1], line2[3]])  # (x2, y2)
             distance = geometryUtils.distance_between_segments(p1, p2, q1, q2)
-            distance = [small_dist for small_dist in distance if small_dist[0] <= mesh_res]
+            distance = [small_dist for small_dist in distance if small_dist[0] <= automesher.mesh_res]
             if distance:
                 dist.append(distance)
             alpha = np.round(np.rad2deg(np.atan(abs((q2[1] - q1[1]) / abs((q2[0] - q1[0]))))), 2)
-            if np.min(np.diff([line1[0:2], line2[0:2]])) > mesh_res or np.min(np.diff([line1[2:4], line2[2:4]])) > mesh_res:
+            if np.min(np.diff([line1[0:2], line2[0:2]])) > automesher.mesh_res or np.min(np.diff([line1[2:4], line2[2:4]])) > automesher.mesh_res:
                 continue
     if dist and check_max_resolution:
         for dist0 in dist:
@@ -326,43 +332,43 @@ def handle_otheredges(automesher, otheredges, unique_xedges, unique_yedges, mesh
             if np.min(x) < automesher.max_res and np.min(x) > 0:
                 automesher.max_res = np.min(x)
 
-    if dist and not check_max_resolution:    
+    if dist and not check_max_resolution:   
         for dist1 in dist:
             if direction == 'x':
                 coords_of_p = [item[1][0] for item in dist1]
-                resolution = mesh_res * np.cos(np.deg2rad(alpha))
+                resolution = automesher.mesh_res * np.cos(np.deg2rad(alpha))
                 # start_and_end_points = [line1[0], line1[1], line2[0], line2[1]]
                 start_and_end_points = [dist1[0][2][0], dist1[0][3][0], dist1[0][4][0], dist1[0][5][0]]
             if direction == 'y':
                 coords_of_p = [item[1][1] for item in dist1]
-                resolution = mesh_res * np.sin(np.deg2rad(alpha))
+                resolution = automesher.mesh_res * np.sin(np.deg2rad(alpha))
                 # start_and_end_points = [line1[2], line1[3], line2[2], line2[3]]
                 start_and_end_points = [dist1[0][2][1], dist1[0][3][1], dist1[0][4][1], dist1[0][5][1]]
             lines_in_range = [lines for lines in mesh_data if np.min(coords_of_p) <= lines <= np.max(coords_of_p)]
             for line in lines_in_range:
                 mesh_data.remove(line)
-            lines_before_min = [line for line in mesh_data if line < np.min(coords_of_p) and abs(line - np.min(coords_of_p)) < max_res]
-            lines_after_max = [line for line in mesh_data if line > np.max(coords_of_p) and abs(line - np.max(coords_of_p)) < max_res]
+            lines_before_min = [line for line in mesh_data if line < np.min(coords_of_p) and abs(line - np.min(coords_of_p)) < automesher.max_res]
+            lines_after_max = [line for line in mesh_data if line > np.max(coords_of_p) and abs(line - np.max(coords_of_p)) < automesher.max_res]
 
             if lines_before_min and lines_after_max:
                 min_line = min(min(lines_before_min), min(lines_after_max))
                 max_line = max(max(lines_before_min), max(lines_after_max))
-                lines = check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points, mesh_data, max_res)
+                lines = check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points, mesh_data, automesher.max_res)
                 mesh_data.extend(lines)                        
             elif lines_before_min:
                 min_line = min(min(lines_before_min), np.min(coords_of_p))
                 max_line = max(max(lines_before_min), np.max(coords_of_p))
-                lines = check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points, mesh_data, max_res)
+                lines = check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points, mesh_data, automesher.max_res)
                 mesh_data.extend(lines)
             elif lines_after_max:
                 min_line = min(min(lines_after_max), np.min(coords_of_p))
                 max_line = max(max(lines_after_max), np.max(coords_of_p))
-                lines = check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points, mesh_data, max_res)
+                lines = check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points, mesh_data, automesher.max_res)
                 mesh_data.extend(lines)
             else:
                 min_line = np.min(coords_of_p)
                 max_line = np.max(coords_of_p)
-                lines = check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points, mesh_data, max_res)
+                lines = check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points, mesh_data, automesher.max_res)
                 mesh_data.extend(lines)
 
 def check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points, mesh_data, resolution):
@@ -385,7 +391,7 @@ def check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points,
         lines=SmoothMeshLines(edges_in_range, resolution/1)
     return lines
 
-def add_ports_to_mesh_data(automesher, mesh_data, edges, min_cellsize, direction):
+def add_ports_to_mesh_data(automesher, mesh_data, edges, direction):
     x, y = [], []
     zedges = []
     x_edges, y_edges = [], []
@@ -393,39 +399,39 @@ def add_ports_to_mesh_data(automesher, mesh_data, edges, min_cellsize, direction
     for prim in automesher.primitives_mesh_setup:
         if hasattr(prim, 'priority'):
             port_coords_x, port_coords_y, port_coords_z = geometryUtils.transfer_port_to_polygon(prim.start, prim.stop)
-            # if prim.measplane_shift:
-            #     print('prim.meas_plane_shift:', prim, prim.measplane_shift)
             x.extend(port_coords_x)
             y.extend(port_coords_y)
             geometryUtils.collect_edges(port_coords_x, port_coords_y, prim, x_edges, y_edges, diagonal_edges)
             z = [(z, None, None, prim, False) for z in port_coords_z]
             zedges.extend(z)
     if direction == 'x':
-        for edge in edges:
-            if not any(e[0] == edge[0] and e[4] is True for e in edges):
-                x_edges.append(edge)
-    if direction == 'y':
-        for edge in edges:
-            if not any(e[0] == edge[0] and e[4] is True for e in edges):
-                y_edges.append(edge)
-    if direction == 'z': 
-        if zedges:
-            edges.extend(zedges)
-    for edge in edges:
-        if hasattr(edge[3], 'priority') and not any(e[0] == edge[0] and e[4] is True for e in edges):
+        for edge in x_edges:
+            # if not any(e[0] == edge[0] and e[4] is True for e in edges):
+            edges.append(edge)
             mesh_data.append(edge[0])
-            for line in mesh_data:
-                if abs(line - edge[0]) < min_cellsize/2:
-                    if any([e[0] == line and hasattr(e[3], 'priority') for e in edges]):
-                        continue
-                    elif not any([e[0] == line and hasattr(e[3], 'priority') for e in edges]):
-                        if line in mesh_data:
-                            mesh_data.remove(line)
-    return mesh_data
-    
-def add_edges_to_mesh_mesh_data(automesher, mesh_data, edges, mesh_res, min_cellsize, direction):
+    if direction == 'y':
+        for edge in y_edges:
+            # if not any(e[0] == edge[0] and e[4] is True for e in edges):
+            edges.append(edge)
+            mesh_data.append(edge[0])
+    if direction == 'z': 
+        for edge in zedges:
+            mesh_data.append(edge[0])
+            edges.append(edge)
+    # for edge in edges:
+    #     if hasattr(edge[3], 'priority') and not any(e[0] == edge[0] and e[4] is True for e in edges):
+    #         mesh_data.append(edge[0])
+    #         for line in mesh_data:
+    #             if abs(line - edge[0]) < min_cellsize/2:
+    #                 if any([e[0] == line and hasattr(e[3], 'priority') for e in edges]):
+    #                     continue
+    #                 elif not any([e[0] == line and hasattr(e[3], 'priority') for e in edges]):
+    #                     if line in mesh_data:
+                            # mesh_data.remove(line)
+                            #     
+def add_edges_to_mesh_mesh_data(automesher, mesh_data, edges, direction):
 
-    remove_close_edges(automesher, edges, direction)
+    remove_close_edges(automesher, edges, direction, return_edges=False)
     for edge in edges:
         dirs = automesher.primitives_mesh_setup.get(edge[3], {}).get('dirs') or \
                 automesher.properties_mesh_setup.get(edge[3].GetProperty() if hasattr(edge[3], 'GetProperty') else None, {}).get('dirs') or \
@@ -442,88 +448,83 @@ def add_edges_to_mesh_mesh_data(automesher, mesh_data, edges, mesh_res, min_cell
                     mesh_data.append(edge[0])
     # mesh_data.extend(edge[0] for edge in edges)
 
-def remove_close_edges(automesher, edges, direction):
-
+def remove_close_edges(automesher, edges, direction, return_edges=False):
+    if direction == 'z':
+        return
     edges_to_remove = []
-    for i in range(len(edges) - 1):
-        if abs(edges[i+1][0] - edges[i][0]) < automesher.min_cellsize and abs(edges[i+1][0] - edges[i][0]) > 0:
-            # edges_to_remove.append(edges[i])
-            # edges_to_remove.append(edges[i + 1])
-            if hasattr(edges[i][3], 'priority') and hasattr(edges[i + 1][3], 'priority'):
-                # if edges[i][3].priority == edges[i + 1][3].priority:
-                continue
-            elif hasattr(edges[i][3], 'GetPriority') and (hasattr(edges[i + 1][3], 'GetPriority')):
-                if edges[i][3].GetPriority() > edges[i + 1][3].GetPriority():
-                    edges_to_remove.append(edges[i + 1])
-                elif edges[i][3].GetPriority() < edges[i + 1][3].GetPriority():
-                    edges_to_remove.append(edges[i])
-                else:
-                    print(f"\033[91mWarning: Detected closely spaced edges at ({direction} = {edges[i][0]} and {direction} = {edges[i+1][0]}, d{direction} = {abs(edges[i][0]-edges[i+1][0])}). This configuration may lead to prolonged simulation times. Consider assigning different priorities or modifying the structure to optimize performance.\033[0m")
-            elif hasattr(edges[i][3], 'GetPriority') and hasattr(edges[i + 1][3], 'priority'):
-                if edges[i][3].GetPriority() < edges[i + 1][3].priority:  
-                    edges_to_remove.append(edges[i])
-                else:
-                    print(f"\033[91mWarning: Detected closely spaced edges at ({direction} = {edges[i][0]} and {direction} = {edges[i+1][0]}, d{direction} = {abs(edges[i][0]-edges[i+1][0])}). This configuration may lead to prolonged simulation times. Consider assigning different priorities or modifying the structure to optimize performance.\033[0m")
-            elif hasattr(edges[i][3], 'priority') and hasattr(edges[i + 1][3], 'GetPriority'):
-                if edges[i][3].priority > edges[i + 1][3].GetPriority():
-                    edges_to_remove.append(edges[i + 1])
-                else:
-                    print(f"\033[91mWarning: Detected closely spaced edges at ({direction} = {edges[i][0]} and {direction} = {edges[i+1][0]}, d{direction} = {abs(edges[i][0]-edges[i+1][0])}). This configuration may lead to prolonged simulation times. Consider assigning different priorities or modifying the structure to optimize performance.\033[0m")
-            # else:
-            #     print(f"\033[91mWarning: Detected closely spaced edges at ({direction} = {edges[i][0]} and {direction} = {edges[i+1][0]}, d{direction} = {abs(edges[i][0]-edges[i+1][0])}). This configuration may lead to prolonged simulation times. Consider assigning different priorities or modifying the structure to optimize performance.\033[0m")
-            #     continue
-                # if abs(edges[i][2]-edges[i][1]) < abs(edges[i+1][2]-edges[i+1][1]):
-                #     edges_to_remove.append(edges[i])
+
+    if not automesher.global_mesh_setup.get('handle_closely_placed_edges'):
+        for i in range(len(edges) - 1):
+            if abs(edges[i+1][0] - edges[i][0]) < automesher.min_cellsize and abs(edges[i+1][0] - edges[i][0]) > 0:
+                # edges_to_remove.append(edges[i])
+                # edges_to_remove.append(edges[i + 1])
+                if hasattr(edges[i][3], 'priority') and hasattr(edges[i + 1][3], 'priority'):
+                    # if edges[i][3].priority == edges[i + 1][3].priority:
+                    continue
+                elif hasattr(edges[i][3], 'GetPriority') and (hasattr(edges[i + 1][3], 'GetPriority')):
+                    if edges[i][3].GetPriority() > edges[i + 1][3].GetPriority():
+                        edges_to_remove.append(edges[i + 1])
+                    elif edges[i][3].GetPriority() < edges[i + 1][3].GetPriority():
+                        edges_to_remove.append(edges[i])
+                    else:
+                        print(f"\033[91mWarning: Detected closely spaced edges at ({direction} = {edges[i][0]} and {direction} = {edges[i+1][0]}, d{direction} = {abs(edges[i][0]-edges[i+1][0])}). This configuration may lead to prolonged simulation times. Consider assigning different priorities or modifying the structure to optimize performance.\033[0m")
+                elif hasattr(edges[i][3], 'GetPriority') and hasattr(edges[i + 1][3], 'priority'):
+                    if edges[i][3].GetPriority() < edges[i + 1][3].priority:  
+                        edges_to_remove.append(edges[i])
+                    else:
+                        print(f"\033[91mWarning: Detected closely spaced edges at ({direction} = {edges[i][0]} and {direction} = {edges[i+1][0]}, d{direction} = {abs(edges[i][0]-edges[i+1][0])}). This configuration may lead to prolonged simulation times. Consider assigning different priorities or modifying the structure to optimize performance.\033[0m")
+                elif hasattr(edges[i][3], 'priority') and hasattr(edges[i + 1][3], 'GetPriority'):
+                    if edges[i][3].priority > edges[i + 1][3].GetPriority():
+                        edges_to_remove.append(edges[i + 1])
+                    else:
+                        print(f"\033[91mWarning: Detected closely spaced edges at ({direction} = {edges[i][0]} and {direction} = {edges[i+1][0]}, d{direction} = {abs(edges[i][0]-edges[i+1][0])}). This configuration may lead to prolonged simulation times. Consider assigning different priorities or modifying the structure to optimize performance.\033[0m")
                 # else:
-                #     edges_to_remove.append(edges[i + 1])
+                #     print(f"\033[91mWarning: Detected closely spaced edges at ({direction} = {edges[i][0]} and {direction} = {edges[i+1][0]}, d{direction} = {abs(edges[i][0]-edges[i+1][0])}). This configuration may lead to prolonged simulation times. Consider assigning different priorities or modifying the structure to optimize performance.\033[0m")
+                #     continue
+                    # if abs(edges[i][2]-edges[i][1]) < abs(edges[i+1][2]-edges[i+1][1]):
+                    #     edges_to_remove.append(edges[i])
+                    # else:
+                    #     edges_to_remove.append(edges[i + 1])
+    else:
+        for i in range(len(edges) - 1):
+            if abs(edges[i+1][0] - edges[i][0]) < automesher.min_cellsize/2 and abs(edges[i+1][0] - edges[i][0]) > 0:
+                if hasattr(edges[i][3], 'priority') and hasattr(edges[i + 1][3], 'priority'):
+                    continue
+                elif hasattr(edges[i][3], 'GetPriority') and (hasattr(edges[i + 1][3], 'GetPriority')):
+                    if edges[i][3].GetPriority() > edges[i + 1][3].GetPriority():
+                        edges_to_remove.append(edges[i + 1])
+                    elif edges[i][3].GetPriority() < edges[i + 1][3].GetPriority():
+                        edges_to_remove.append(edges[i])
+                    else:
+                        if abs(edges[i][2]-edges[i][1]) < abs(edges[i+1][2]-edges[i+1][1]):
+                            edges_to_remove.append(edges[i])
+                        elif abs(edges[i][2]-edges[i][1]) > abs(edges[i+1][2]-edges[i+1][1]):
+                            edges_to_remove.append(edges[i + 1])
+                        else: 
+                            edges_to_remove.append(edges[i + 1])
+                            edges_to_remove.append(edges[i])
+                            edges.append(((edges[i + 1][0]+edges[i][0])/2, edges[i][1], edges[i][2], edges[i][3], True))
+                elif hasattr(edges[i][3], 'GetPriority') and hasattr(edges[i + 1][3], 'priority'):
+                    edges_to_remove.append(edges[i])
+                elif hasattr(edges[i][3], 'priority') and hasattr(edges[i + 1][3], 'GetPriority'):
+                    edges_to_remove.append(edges[i + 1])
+                else:
+                    if abs(edges[i][2]-edges[i][1]) < abs(edges[i+1][2]-edges[i+1][1]):
+                        edges_to_remove.append(edges[i])
+                    elif abs(edges[i][2]-edges[i][1]) > abs(edges[i+1][2]-edges[i+1][1]):
+                        edges_to_remove.append(edges[i + 1])
+                    else:
+                        edges_to_remove.append(edges[i + 1])
+                        edges_to_remove.append(edges[i])
+                        edges.append(((edges[i + 1][0]+edges[i][0])/2, edges[i][1], edges[i][2], edges[i][3], True))
     edges_to_remove = list({edge[0]: edge for edge in edges_to_remove}.values())
     if edges_to_remove:
         edges_to_remove_first_elements = {edge[0] for edge in edges_to_remove}
-        edges[:] = [edge for edge in edges if edge[0] not in edges_to_remove_first_elements]
+        edges[:] = [edge for edge in edges if edge[0] not in edges_to_remove_first_elements]    
+    if return_edges:
+        return edges
 
-def remove_close_unique_edges(automesher, unique_edges, max_res, direction):
-
-    unique_edges_to_remove = []
-    for i in range(len(unique_edges) - 1):
-        if abs(unique_edges[i+1][0] - unique_edges[i][0]) < automesher.min_cellsize:
-            if hasattr(unique_edges[i][1], 'priority') and hasattr(unique_edges[i + 1][1], 'priority'):
-                # if unique_edges[i][1].priority == unique_edges[i + 1][1].priority:
-                continue
-            elif hasattr(unique_edges[i][1], 'GetPriority') and (hasattr(unique_edges[i + 1][1], 'GetPriority')):
-                if unique_edges[i][1].GetPriority() > unique_edges[i + 1][1].GetPriority():
-                    unique_edges_to_remove.append(unique_edges[i + 1])
-                elif unique_edges[i][1].GetPriority() < unique_edges[i + 1][1].GetPriority():
-                    unique_edges_to_remove.append(unique_edges[i])
-                else:
-                    print(f"\033[91mWarning: Detected closely spaced edges at ({direction} = {unique_edges[i][0]} and {direction} = {unique_edges[i+1][0]}, d{direction} = {abs(unique_edges[i][0]-unique_edges[i+1][0])}). This configuration may lead to prolonged simulation times. Consider assigning different priorities or modifying the structure to optimize performance.\033[0m")
-            elif hasattr(unique_edges[i][1], 'GetPriority') and hasattr(unique_edges[i + 1][1], 'priority'):
-                if unique_edges[i][1].GetPriority() < unique_edges[i + 1][1].priority:
-                    unique_edges_to_remove.append(unique_edges[i])
-                else:
-                    print(f"\033[91mWarning: Detected closely spaced edges at ({direction} = {unique_edges[i][0]} and {direction} = {unique_edges[i+1][0]}, d{direction} = {abs(unique_edges[i][0]-unique_edges[i+1][0])}). This configuration may lead to prolonged simulation times. Consider assigning different priorities or modifying the structure to optimize performance.\033[0m")
-            elif hasattr(unique_edges[i][1], 'priority') and hasattr(unique_edges[i + 1][1], 'GetPriority'):
-                if unique_edges[i][1].priority > unique_edges[i + 1][1].GetPriority():
-                    unique_edges_to_remove.append(unique_edges[i + 1])
-                else:
-                    print(f"\033[91mWarning: Detected closely spaced edges at ({direction} = {unique_edges[i][0]} and {direction} = {unique_edges[i+1][0]}, d{direction} = {abs(unique_edges[i][0]-unique_edges[i+1][0])}). This configuration may lead to prolonged simulation times. Consider assigning different priorities or modifying the structure to optimize performance.\033[0m")
-            # elif (getattr(unique_edges[i][1], 'GetPriority', lambda: None)() or unique_edges[i][1].priority) > (getattr(unique_edges[i + 1][1], 'GetPriority', lambda: None)() or getattr(unique_edges[i + 1][1], 'priority')):
-            #     unique_edges_to_remove.append(unique_edges[i + 1])
-            # elif (getattr(unique_edges[i][1], 'GetPriority', lambda: None)() or unique_edges[i][1].priority) < (getattr(unique_edges[i + 1][1], 'GetPriority', lambda: None)() or getattr(unique_edges[i + 1][1], 'priority')):
-            #     unique_edges_to_remove.append(unique_edges[i])
-            # else:
-            #     if unique_edges[i][0] < unique_edges[i + 1][0]:
-            #         unique_edges_to_remove.append(unique_edges[i])
-            #     else:
-            #         unique_edges_to_remove.append(unique_edges[i+1])
-    unique_edges_to_remove = list({edge[0]: edge for edge in unique_edges_to_remove}.values())
-    if unique_edges_to_remove:
-        unique_edges_to_remove_first_elements = {edge[0] for edge in unique_edges_to_remove}
-        unique_edges[:] = [edge for edge in unique_edges if edge[0] not in unique_edges_to_remove_first_elements]
-                            
-    return unique_edges
-
-
-def mesh_small_gaps(automesher, unique_edges, mesh_res, max_res, num_lines, mesh_data, direction):
+def mesh_small_gaps(automesher, unique_edges, mesh_data, direction):
     unique_edges.sort(key = lambda x: x[0])
     min_cellsize = automesher.global_mesh_setup.get('min_cellsize', None)
     use_num_lines = True if min_cellsize is None else False
@@ -554,10 +555,11 @@ def mesh_small_gaps(automesher, unique_edges, mesh_res, max_res, num_lines, mesh
             automesher.min_cellsize_z = new_min_cellsize_z
             # automesher.min_cellsize_changed = True
             automesher.max_res_z = min(max_res_list_z)
-    else:
+    if direction in ['x', 'y']:
         for i in range(len(unique_edges) - 1):
+                # print('Checking edges:', unique_edges[i], unique_edges[i + 1])
             # if not unique_edges[i + 1][4] and not unique_edges[i][4]:
-                if abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) <= 2*mesh_res and abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) >= max_res and abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) >= 1.5:
+                if abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) <= automesher.mesh_res and abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) >= automesher.max_res and abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) >= 1.5:
                     y1, y2 = unique_edges[i][1], unique_edges[i][2]
                     y1_next, y2_next = unique_edges[i + 1][1], unique_edges[i + 1][2]
                     if (y1 <= y1_next <= y2 or y1 >= y1_next >= y2 or
@@ -568,16 +570,27 @@ def mesh_small_gaps(automesher, unique_edges, mesh_res, max_res, num_lines, mesh
                             if direction == 'x':
                                 x_in_range = [x for x in mesh_data[0] if unique_edges[i][0] <= x <= unique_edges[i + 1][0]]
                                 if use_num_lines:
-                                    new_max_res = np.diff(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], num_lines))
+                                    new_max_res = np.diff(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], automesher.num_lines))
                                     new_max_res = np.max(new_max_res)
                                     max_res_list.append(new_max_res)
                                 else:
-                                    new_max_res = max_res
+                                    new_max_res = automesher.max_res
                                 if not automesher.global_mesh_setup.get('smooth_metal_edge'):
                                     for x in x_in_range:
                                         mesh_data[0].remove(x)
+                                    x_in_range = []
                                     x_in_range.append(unique_edges[i][0])
                                     x_in_range.append(unique_edges[i + 1][0])
+                                if automesher.global_mesh_setup.get('smooth_metal_edge'):
+                                    x_in_range = []
+                                    if not (hasattr(unique_edges[i][3], 'GetProperty') and isinstance(unique_edges[i][3].GetProperty(), CSProperties.CSPropMetal) or \
+                                        (hasattr(unique_edges[i][3],'priority') and isinstance(unique_edges[i][3],openEMS.ports.MSLPort))):
+                                        x_in_range.append(unique_edges[i][0])
+                                    if not (hasattr(unique_edges[i + 1][3], 'GetProperty') and isinstance(unique_edges[i + 1][3].GetProperty(), CSProperties.CSPropMetal) or \
+                                        (hasattr(unique_edges[i + 1][3],'priority') and isinstance(unique_edges[i + 1][3],openEMS.ports.MSLPort))):
+                                        x_in_range.append(unique_edges[i + 1][0])
+                                if not x_in_range:
+                                    x_in_range = np.linspace(unique_edges[i][0], unique_edges[i + 1][0], automesher.num_lines)[1:-1]
                                 xlines = SmoothMeshLines([x_in_range], new_max_res)
                                 if len(xlines) <= 4 and not automesher.global_mesh_setup.get('smooth_metal_edge'):
                                     mesh_data[0].extend(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], 4))
@@ -586,16 +599,27 @@ def mesh_small_gaps(automesher, unique_edges, mesh_res, max_res, num_lines, mesh
                             elif direction == 'y':
                                 y_in_range = [y for y in mesh_data[1] if unique_edges[i][0] <= y <= unique_edges[i + 1][0]]
                                 if use_num_lines:
-                                    new_max_res = np.diff(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], num_lines))
+                                    new_max_res = np.diff(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], automesher.num_lines))
                                     new_max_res = np.max(new_max_res)
                                     max_res_list.append(new_max_res)
                                 else:
-                                    new_max_res = max_res
+                                    new_max_res = automesher.max_res
                                 if not automesher.global_mesh_setup.get('smooth_metal_edge'):
                                     for y in y_in_range:
                                         mesh_data[1].remove(y)
+                                    y_in_range = []
                                     y_in_range.append(unique_edges[i][0])
                                     y_in_range.append(unique_edges[i + 1][0])
+                                if automesher.global_mesh_setup.get('smooth_metal_edge'):
+                                    y_in_range = []
+                                    if not (hasattr(unique_edges[i][3], 'GetProperty') and isinstance(unique_edges[i][3].GetProperty(), CSProperties.CSPropMetal) or \
+                                        (hasattr(unique_edges[i][3],'priority') and isinstance(unique_edges[i][3],openEMS.ports.MSLPort))):
+                                        y_in_range.append(unique_edges[i][0])
+                                    if not (hasattr(unique_edges[i + 1][3], 'GetProperty') and isinstance(unique_edges[i + 1][3].GetProperty(), CSProperties.CSPropMetal) or \
+                                        (hasattr(unique_edges[i + 1][3],'priority') and isinstance(unique_edges[i + 1][3],openEMS.ports.MSLPort))):
+                                        y_in_range.append(unique_edges[i + 1][0])
+                                if not y_in_range:
+                                    y_in_range = np.linspace(unique_edges[i][0], unique_edges[i + 1][0], automesher.num_lines)[1:-1]
                                 ylines = SmoothMeshLines([y_in_range], new_max_res)
                                 if len(ylines) <= 4 and not automesher.global_mesh_setup.get('smooth_metal_edge'):
                                     mesh_data[1].extend(np.linspace(unique_edges[i][0], unique_edges[i + 1][0], 4))
@@ -611,22 +635,22 @@ def mesh_small_gaps(automesher, unique_edges, mesh_res, max_res, num_lines, mesh
 
 def check_max_resolution(automesher, diagonal_edges, unique_xedges, unique_yedges, mesh_res, max_res, mesh_data):
     # x-direction
-    handle_otheredges(automesher, diagonal_edges, unique_xedges, unique_yedges, mesh_res, max_res, mesh_data[0], 'x', check_max_resolution=True)
+    handle_diagonal_edges(automesher, diagonal_edges, unique_xedges, unique_yedges, mesh_data[0], 'x', check_max_resolution=True)
     # y-direction
-    handle_otheredges(automesher, diagonal_edges, unique_xedges, unique_yedges, mesh_res, max_res, mesh_data[1], 'y', check_max_resolution=True)
+    handle_diagonal_edges(automesher, diagonal_edges, unique_xedges, unique_yedges, mesh_data[1], 'y', check_max_resolution=True)
 
 def handle_circular_segments(automesher, polygon, mesh_data):
 
     circ_segments = automesher.found_circles
 
-    if circ_segments:
-        print(f"Gefundene Kreisabschnitte: {len(circ_segments)}")
-        for i, (x_seg, y_seg) in enumerate(circ_segments):
-            print(f"  Kreis #{i+1}:")
-            print("    X:", x_seg)
-            print("    Y:", y_seg)
-    else:
-        print("Kein kreisförmiger Abschnitt gefunden.")
+    # if circ_segments:
+    #     print(f"Gefundene Kreisabschnitte: {len(circ_segments)}")
+    #     for i, (x_seg, y_seg) in enumerate(circ_segments):
+    #         print(f"  Kreis #{i+1}:")
+    #         print("    X:", x_seg)
+    #         print("    Y:", y_seg)
+    # else:
+    #     print("Kein kreisförmiger Abschnitt gefunden.")
 
     # delete mesh lines that are inside the circle
     if circ_segments:
@@ -640,7 +664,7 @@ def handle_circular_segments(automesher, polygon, mesh_data):
             # Add y lines inside the circle
             mesh_data[1].extend(SmoothMeshLines([min(y_seg), max(y_seg)], automesher.max_res))
 
-def add_missing_mesh_lines(automesher, unique_edges, sorted_points, diagonal_edges, mesh_res, mesh_data, direction):
+def add_missing_mesh_lines(automesher, unique_edges, sorted_points, diagonal_edges, mesh_data, direction):
     'Check if the first and last point are x or y edges, if not it adds the missing mesh lines between the point and the edge'
     # if unique_edges.size > 0:
     if unique_edges:
@@ -651,10 +675,10 @@ def add_missing_mesh_lines(automesher, unique_edges, sorted_points, diagonal_edg
                 if direction == 'y':
                     start, end = other_edge[2], other_edge[3]
                 if start <= sorted_points[-1] <= end or end <= sorted_points[-1] <= start:
-                    if abs(np.diff([unique_edges[-1][0], min(start, end)])) < mesh_res:
+                    if abs(np.diff([unique_edges[-1][0], min(start, end)])) < automesher.mesh_res:
                         lines = np.linspace(unique_edges[-1][0], min(start, end), 5)[1:]
                     else:
-                        lines = SmoothMeshLines([unique_edges[-1][0], min(start, end)], mesh_res)[1:]
+                        lines = SmoothMeshLines([unique_edges[-1][0], min(start, end)], automesher.mesh_res)[1:]
                     mesh_data.extend(lines)
         if unique_edges[0][0] > sorted_points[0]:
             for other_edge in diagonal_edges:
@@ -663,10 +687,10 @@ def add_missing_mesh_lines(automesher, unique_edges, sorted_points, diagonal_edg
                 if direction == 'y':
                     start, end = other_edge[2], other_edge[3]
                 if start <= sorted_points[0] <= end or end <= sorted_points[0] <= start:
-                    if abs(np.diff([unique_edges[0][0], max(start, end)])) < mesh_res:
+                    if abs(np.diff([unique_edges[0][0], max(start, end)])) < automesher.mesh_res:
                         lines = np.linspace(unique_edges[0][0], max(start, end), 5)[1:]
                     else:
-                        lines = SmoothMeshLines([max(start, end), unique_edges[0][0]], mesh_res)
+                        lines = SmoothMeshLines([max(start, end), unique_edges[0][0]], automesher.mesh_res)
                     mesh_data.extend(lines)    
 
 def add_graded_mesh_lines(automesher, start, end, start_res, target_cellsize, growth):
@@ -702,7 +726,7 @@ def add_graded_mesh_lines(automesher, start, end, start_res, target_cellsize, gr
 
     return lines
 
-def add_graded_mesh_lines_at_material_transitions(automesher, edges, mesh_data, mesh_res, mesh_map, direction):
+def add_graded_mesh_lines_at_material_transitions(automesher, edges, mesh_data, mesh_map, direction):
     if automesher.global_mesh_setup.get('add_graded_mesh_lines_at_material_transitions', False) is True:
         for i in range(len(edges) - 1):
             if abs(np.diff([edges[i][0], edges[i + 1][0]])) == 0 and edges[i][0] > np.min(edges[0][0]) and edges[i][0] < np.max(edges[-1][0]):
@@ -717,7 +741,7 @@ def add_graded_mesh_lines_at_material_transitions(automesher, edges, mesh_data, 
                             if not automesher.min_cellsize_changed:
                                 target_size = automesher.max_cellsize_air / epsilon**0.5
                             else:
-                                target_size = mesh_res
+                                target_size = automesher_mesh_res
                             lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
                             mesh_data.extend(lines)
                             lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
@@ -733,7 +757,7 @@ def add_graded_mesh_lines_at_material_transitions(automesher, edges, mesh_data, 
                             if not automesher.min_cellsize_changed:
                                 target_size = automesher.max_cellsize_air / epsilon**0.5
                             else:
-                                target_size = mesh_res
+                                target_size = automesher.mesh_res
                             lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
                             mesh_data.extend(lines)
                             lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
@@ -781,7 +805,7 @@ def add_graded_mesh_lines_at_material_transitions(automesher, edges, mesh_data, 
                 if not automesher.min_cellsize_changed:
                     target_size = automesher.max_cellsize_air / max(mesh_map[i][2], mesh_map[i+1][2])**0.5
                 else:
-                    target_size = mesh_res
+                    target_size = automesher.mesh_res
                 # target_size = automesher.max_cellsize_air / max(mesh_map[i][2], mesh_map[i+1][2])**0.5
                 lines = add_graded_mesh_lines(automesher, mesh_map[i+1][0], mesh_map[i+1][0]-target_size, automesher.min_cellsize, target_size, 1.3)
                 mesh_data.extend(lines)
@@ -791,7 +815,7 @@ def add_graded_mesh_lines_at_material_transitions(automesher, edges, mesh_data, 
                 if not automesher.min_cellsize_changed:
                     target_size = automesher.max_cellsize_air / max(mesh_map[i][2], mesh_map[i+1][2])**0.5
                 else:
-                    target_size = mesh_res            
+                    target_size = automesher.mesh_res            
                 # target_size = automesher.max_cellsize_air / max(mesh_map[i][2], mesh_map[i+1][2])**0.5
                 lines = add_graded_mesh_lines(automesher, mesh_map[i+1][1], mesh_map[i+1][1]-target_size, automesher.min_cellsize, target_size, 1.3)
                 mesh_data.extend(lines)
@@ -803,7 +827,7 @@ def add_graded_mesh_lines_at_material_transitions(automesher, edges, mesh_data, 
         #     if not automesher.min_cellsize_changed:
         #         target_size = automesher.max_cellsize_air / mesh_maps[2]**0.5
         #     else:
-        #         target_size = mesh_res
+        #         target_size = automesher.mesh_res
         #     if xedges:
         #         xedges.sort(key=lambda x: x[0])
         #         for i in range(len(xedges)-1):

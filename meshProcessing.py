@@ -7,6 +7,9 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
     mesh_data[0] = sorted(mesh_data[0])
     mesh_data[1] = sorted(mesh_data[1])
     mesh_data[2] = sorted(mesh_data[2])
+    z_coords.sort(key=lambda edge: edge[0])
+    x_edges.sort(key=lambda edge: edge[0])
+    y_edges.sort(key=lambda edge: edge[0])  
     automesher.mesh_with_max_cell_size = [[], [], []]
     xmax, xmin, ymax, ymin, zmax, zmin = max(mesh_data[0]), min(mesh_data[0]), max(mesh_data[1]), min(mesh_data[1]), max(mesh_data[2]), min(mesh_data[2])
 
@@ -24,7 +27,11 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
                         automesher.mesh_with_max_cell_size[2].append((mesh_data[2][i], mesh_data[2][i + 1]))
 
                 for idx in range(3):
-                    mesh_data[idx] = SmoothMeshLines(mesh_data[idx], automesher.mesh_res).tolist()
+                    if len(mesh_data[idx]) > 1 and automesher.mesh_res > 0:
+                        mesh_data[idx] = SmoothMeshLines(mesh_data[idx], automesher.mesh_res).tolist()
+                    else:
+                        continue
+                        # raise ValueError(f"Invalid input for SmoothMeshLines: len(mesh_data[{idx}])={len(mesh_data[idx])}, automesher.mesh_res={automesher.mesh_res}")
                     for start, end in automesher.mesh_with_max_cell_size[idx]:
                         mesh_data[idx] = [line for line in mesh_data[idx] if not (start < line < end)]
         # else:
@@ -44,7 +51,10 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
                         automesher.mesh_with_max_cell_size[2].append((mesh_data[2][i], mesh_data[2][i + 1]))
 
                 for idx in range(3):
-                    mesh_data[idx] = SmoothMeshLines(mesh_data[idx], automesher.mesh_res).tolist()
+                    if len(mesh_data[idx]) > 1 and automesher.mesh_res > 0:
+                        mesh_data[idx] = SmoothMeshLines(mesh_data[idx], automesher.mesh_res).tolist()
+                    else:
+                        continue
                     for start, end in automesher.mesh_with_max_cell_size[idx]:
                         mesh_data[idx] = [line for line in mesh_data[idx] if not (start < line < end)]
         else:
@@ -283,8 +293,8 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
     mesh_data[2] = mesh_data[2].tolist() if isinstance(mesh_data[2], np.ndarray) else mesh_data[2]
 
     # if automesher.global_mesh_setup.get('min_cellsize', None) is not None or automesher.min_cellsize_changed:
-    mesh_data[0] = process_mesh_data(mesh_data[0], automesher.min_cellsize, unique_xedges)
-    mesh_data[1] = process_mesh_data(mesh_data[1], automesher.min_cellsize, unique_yedges)
+    mesh_data[0] = process_mesh_data(mesh_data[0], automesher.min_cellsize, x_edges)
+    mesh_data[1] = process_mesh_data(mesh_data[1], automesher.min_cellsize, y_edges)
     mesh_data[2] = process_mesh_data(mesh_data[2], automesher.min_cellsize_z, z_coords)
 
 def process_mesh_data(mesh_data, min_cellsize, unique_edges):
@@ -298,7 +308,18 @@ def process_mesh_data(mesh_data, min_cellsize, unique_edges):
             if skip_next:
                 skip_next = False
                 continue
-
+            # if any(mesh_data[i] == edge[0] for edge in unique_edges) and any(mesh_data[i+1] == edge[0] for edge in unique_edges):
+            #     matching_edge_i = next(edge for edge in unique_edges if mesh_data[i] == edge[0])
+            #     matching_edge_i_plus_1 = next(edge for edge in unique_edges if mesh_data[i+1] == edge[0])
+            #     if abs(mesh_data[i+1] - mesh_data[i]) > 0:
+            #         if hasattr(matching_edge_i[3], 'priority') and hasattr(matching_edge_i_plus_1[3], 'priority'):
+            #             print('matching edges with same value found:', mesh_data[i+1]- mesh_data[i], matching_edge_i_plus_1, matching_edge_i)
+            #             new_mesh_data.append(mesh_data[i])
+            #             new_mesh_data.append(mesh_data[i+1])
+            #         # if hasattr(matching_edge_i_plus_1, 'priority'):
+            #         #     new_mesh_data.append(mesh_data[i+1])
+            #         print('new mesh data:', new_mesh_data)
+            #         continue
             if abs(mesh_data[i+1] - mesh_data[i]) < min_cellsize / 2:
                 changed = True  
                 if any(mesh_data[i] == edge[0] for edge in unique_edges) and not any(mesh_data[i+1] == edge[0] for edge in unique_edges):
@@ -322,7 +343,7 @@ def process_mesh_data(mesh_data, min_cellsize, unique_edges):
 
         if not changed:
             break  
-
         mesh_data = new_mesh_data  
+    # print(f"Mesh data changed: {new_mesh_data}")
 
     return mesh_data

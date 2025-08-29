@@ -133,11 +133,11 @@ def process_single_polygon(polygon, x, y, x_edges, y_edges, diagonal_edges):
     y = np.append(y, yy)
     for i in range(len(xx) - 1):
         if xx[i] != xx[i + 1] and yy[i] != yy[i + 1]:
-            diagonal_edges.append([xx[i], xx[i + 1], yy[i], yy[i + 1], polygon])
+            diagonal_edges.append([xx[i], xx[i + 1], yy[i], yy[i + 1], polygon, False])
         if xx[i] == xx[i + 1]:
-            x_edges.append([xx[i], yy[i], yy[i + 1], polygon])
+            x_edges.append([xx[i], yy[i], yy[i + 1], polygon, False])
         if yy[i] == yy[i + 1]:
-            y_edges.append([yy[i], xx[i], xx[i + 1], polygon])       
+            y_edges.append([yy[i], xx[i], xx[i + 1], polygon, False])       
 
 def distance_between_segments(p1, p2, q1, q2):
     p = np.linspace(p1, p2, 10)
@@ -541,4 +541,5 @@ def metal_edge(automesher, edges, x_coords, y_coords, mesh_data, direction):
                 if edge[0] == max(edges, key=lambda e: e[0])[0]:
                     continue 
                 mesh_data.append(edge[0] - automesher.min_cellsize/2)
+                mesh_data.append(edge[0])
                 mesh_data.append(edge[0] + automesher.min_cellsize/2)
