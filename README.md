@@ -191,10 +191,9 @@ Take a look for the examples in the Tutorials folder
 
 * **ImportError for openEMS/CSXCAD**: ensure their Python modules are installed and on `PYTHONPATH`.
 * **Mesh looks too coarse/fine**: adjust `mesh_resolution` or set `refined_cellsize`/`min_cellsize` directly.
-* **No lines in a direction**: check global/primitive `dirs` filters.
 * **Very dense mesh near tiny gaps**: expected; increase `min_cellsize` or simplify geometry.
 
---- -->
+---
 
 ## Contributing
 
