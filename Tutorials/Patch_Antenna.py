@@ -48,7 +48,7 @@ global_mesh_setup = {
     'stop_frequency': f_max,                                              
     'smooth_metal_edge': 'one_third_two_thirds',                          # useful for thin metal layers, Options: False, 'one_third_two_thirds', 'extra_lines'
     'mesh_resolution': 'medium',                                          # Options: 'low', 'medium', 'high', 'very_high'
-    'boundary_distance': ['auto', 'auto', 'auto', 'auto', 'auto', None],  # Options: value, 'auto', or None
+    'boundary_distance': ['auto', 'auto', 'auto', 'auto', None, 'auto'],  # Options: value, 'auto', or None
 }
 
 # Enhance the CSX and FDTD objects for automatic mesh optimization
@@ -92,6 +92,14 @@ if not post_proc_only:
 port.CalcPort(Sim_Path, f, ref_impedance=50)
 
 s11 = port.uf_ref / port.uf_inc 
+
+# Save the s11 parameter in a text file
+output_file = os.path.join(Sim_Path, 's11_results.txt')
+with open(output_file, 'w') as file:
+    for freq, s11_value in zip(f, s11):
+        magnitude = abs(s11_value)
+        phase = angle(s11_value, deg=True)
+        file.write(f"{freq:.12e} {magnitude:.12e} {phase:.12e}\n")
 
 plot(f / 1e9, 20 * log10(abs(s11)), 'k-', linewidth=2, label='$S_{11}$')
 grid() 
