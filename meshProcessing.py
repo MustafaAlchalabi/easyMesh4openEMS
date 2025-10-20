@@ -74,9 +74,13 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
         if not any(start == x_edges[0] for x_edges in unique_xedges):
             # search for the closest edge in xedges and replace it
             closest_edge = min(unique_xedges, key=lambda edge: abs(edge[0] - start))
+            if closest_edge and abs(start-closest_edge[0]) > automesher.mesh_res:
+                continue
             start = closest_edge[0]
         if not any(end == x_edges[0] for x_edges in unique_xedges):
             closest_edge = min(unique_xedges, key=lambda edge: abs(edge[0] - end))
+            if closest_edge and abs(end- closest_edge[0]) > automesher.mesh_res:
+                continue
             end = closest_edge[0]
         tmp_mesh_with_max_cell_size[0][i] = (start, end)
 
@@ -84,40 +88,44 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
         if not any(start == y_edges[0] for y_edges in unique_yedges):
             # search for the closest edge in yedges and replace it
             closest_edge = min(unique_yedges, key=lambda edge: abs(edge[0] - start))
+            if closest_edge and abs(start-closest_edge[0]) > automesher.mesh_res:
+                continue
             start = closest_edge[0]
         if not any(end == y_edges[0] for y_edges in unique_yedges):
             closest_edge = min(unique_yedges, key=lambda edge: abs(edge[0] - end))
+            if closest_edge and abs(end-closest_edge[0]) > automesher.mesh_res:
+                continue
             end = closest_edge[0]
         tmp_mesh_with_max_cell_size[1][i] = (start, end)
 
     for map in mesh_map[0]:
         max_cellsize = automesher.max_cellsize_air / map[2]**0.5
-        lines_to_be_smoothed = [line for line in mesh_data[0] if map[0] <= line <= map[1]]
+        lines_to_be_smoothed = sorted(set(float(line) for line in mesh_data[0] if map[0] <= line <= map[1]))
         if any(map[0] == start or map[0] == end for start, end in tmp_mesh_with_max_cell_size[0]) or \
            any(map[1] == start or map[1] == end for start, end in tmp_mesh_with_max_cell_size[0]):
             continue
         if lines_to_be_smoothed:
             already_smoothed[0].append((map[0], map[1]))
-            mesh_data[0].extend(SmoothMeshLines(lines_to_be_smoothed, max_cellsize).tolist())
+            mesh_data[0].extend(SmoothMeshLines(lines_to_be_smoothed, max_cellsize, 1.3).tolist())
 
     for map in mesh_map[1]:
         max_cellsize = automesher.max_cellsize_air / map[2]**0.5
-        lines_to_be_smoothed = [line for line in mesh_data[1] if map[0] <= line <= map[1]]
+        lines_to_be_smoothed = sorted(set(float(line) for line in mesh_data[1] if map[0] <= line <= map[1]))
         if any(map[0] == start or map[0] == end for start, end in tmp_mesh_with_max_cell_size[1]) or \
               any(map[1] == start or map[1] == end for start, end in tmp_mesh_with_max_cell_size[1]):    
             continue
         if lines_to_be_smoothed:
             already_smoothed[1].append((map[0], map[1]))
-            mesh_data[1].extend(SmoothMeshLines(lines_to_be_smoothed, max_cellsize).tolist())
+            mesh_data[1].extend(SmoothMeshLines(lines_to_be_smoothed, max_cellsize, 1.3).tolist())
             
     for map in mesh_map[2]:
         max_cellsize = automesher.max_cellsize_air / map[2]**0.5
-        lines_to_be_smoothed = [line for line in mesh_data[2] if map[0] <= line <= map[1]]
+        lines_to_be_smoothed = sorted(set(float(line) for line in mesh_data[2] if map[0] <= line <= map[1]))
         if any(map[0] == start or map[0] == end for start, end in tmp_mesh_with_max_cell_size[2]) or \
               any(map[1] == start or map[1] == end for start, end in tmp_mesh_with_max_cell_size[2]):
             continue
         if lines_to_be_smoothed:
-            mesh_data[2].extend(SmoothMeshLines(lines_to_be_smoothed, max_cellsize).tolist())
+            mesh_data[2].extend(SmoothMeshLines(lines_to_be_smoothed, max_cellsize, 1.3).tolist())
 
     if automesher.min_cellsize_changed:
         if automesher.mesh_with_max_cell_size[0]:
@@ -209,18 +217,18 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
                 lines_to_add = [line for line in lines if (start < line < end)]
                 mesh_data[2].extend(lines_to_add)
 
-    # for i in range(1, len(np.diff(lines[2])) - 1):
-    #     # check if the difference between two consecutive z values is greater than 2 times the difference between the next two consecutive z values
-    #     if i + 1 < len(lines[2][0]) and np.round(np.diff(lines[2][0])[i] / np.diff(lines[2][0])[i + 1], 1) > 2 and np.diff(lines[2][0])[i] > automesher.min_cellsize:
-    #         lines[2][0] = list(lines[2][0])  # Convert to list
-    #         lines[2][0].extend(SmoothMeshLines([lines[2][0][i], lines[2][0][i + 1]], automesher.mesh_res/2, 1.3))
-
+    mesh_data[0] = sorted(mesh_data[0])
+    mesh_data[1] = sorted(mesh_data[1])
+    mesh_data[2] = sorted(mesh_data[2])
+    z_coords.sort(key=lambda edge: edge[0])
+    x_edges.sort(key=lambda edge: edge[0])
+    y_edges.sort(key=lambda edge: edge[0])  
     # Check lines between x edges
     for i in range(len(x_edges) - 1):
         if abs(x_edges[i][0] - x_edges[i + 1][0]) > automesher.mesh_res:
             lines_in_range = [line for line in mesh_data[0] if x_edges[i][0] < line < x_edges[i + 1][0]]
             lines_in_range = sorted(set(lines_in_range))  # Ensure unique lines 
-            if not lines_in_range or len(lines_in_range) < automesher.num_lines-2:
+            if not lines_in_range:
                 lines_to_add = np.linspace(x_edges[i][0], x_edges[i + 1][0], automesher.num_lines)
                 lines_to_add = list(lines_to_add)   
                 mesh_data[0].extend(lines_to_add)
@@ -230,7 +238,7 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
         if abs(y_edges[i][0] - y_edges[i + 1][0]) > automesher.mesh_res:
             lines_in_range = [line for line in mesh_data[1] if y_edges[i][0] < line < y_edges[i + 1][0]]
             lines_in_range = sorted(set(lines_in_range))  # Ensure unique lines
-            if not lines_in_range or len(lines_in_range) < automesher.num_lines-2:
+            if not lines_in_range:
                 lines_to_add = np.linspace(y_edges[i][0], y_edges[i + 1][0], automesher.num_lines)
                 lines_to_add = list(lines_to_add)   
                 mesh_data[1].extend(lines_to_add)
@@ -249,7 +257,7 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
                     lines_to_add = list(lines_to_add)
                 mesh_data[2].extend(lines_to_add)
 
-#     automesher.global_mesh_setup:'boundary_distance': [ 1000, 1000, 1000, 1000, 1000, 1000 ], # value, auto or None
+    # automesher.global_mesh_setup:'boundary_distance': [ 1000, 1000, 1000, 1000, 1000, 1000 ], # value, auto or None
     graded_lines_y = []
     graded_lines_x = []
     graded_lines_z = []
@@ -293,6 +301,112 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
     mesh_data[2] = mesh_data[2].tolist() if isinstance(mesh_data[2], np.ndarray) else mesh_data[2]
 
     # if automesher.global_mesh_setup.get('min_cellsize', None) is not None or automesher.min_cellsize_changed:
+    mesh_data[0] = process_mesh_data(mesh_data[0], automesher.min_cellsize, x_edges)
+    mesh_data[1] = process_mesh_data(mesh_data[1], automesher.min_cellsize, y_edges)
+    mesh_data[2] = process_mesh_data(mesh_data[2], automesher.min_cellsize_z, z_coords)
+
+    lines = [sorted(set(mesh_data[0])), sorted(set(mesh_data[1])), sorted(set(mesh_data[2]))]
+    changed = True
+    iteration_count = 0  # Initialize iteration counter
+    max_iterations = 10  # Set maximum iterations to avoid infinite loop
+    while changed and iteration_count < max_iterations:
+        differences = np.diff(lines[0])  # Precompute differences
+        changed = False
+        for i in range(1, len(differences) - 1):
+            # Check if the difference between two consecutive x values is greater than 2 times the difference between the next two consecutive z values
+            if abs(np.round(differences[i + 1] / differences[i], 1)) == 2:
+                # Add extra lines between these two x values
+                lines_to_add = lines[0][i+1] + abs(lines[0][i+1]-lines[0][i])
+                lines[0].append(lines_to_add)
+                mesh_data[0].append(lines_to_add)
+                lines[0] = sorted(set(lines[0]))  # Re-sort and remove duplicates
+                differences = np.diff(lines[0])  # Recompute differences
+                changed = True
+            if abs(np.round(differences[i + 1] / differences[i], 1)) > 2:
+                # Add extra lines between these two x values
+                lines_to_add = lines[0][i+1] + 1.3*abs(lines[0][i+1]-lines[0][i])
+                lines[0].append(lines_to_add)
+                mesh_data[0].append(lines_to_add)
+                lines[0] = sorted(set(lines[0]))  # Re-sort and remove duplicates
+                differences = np.diff(lines[0])  # Recompute differences
+                changed = True
+        iteration_count += 1  # Increment iteration counter
+
+    lines = [sorted(set(mesh_data[0]), reverse=True), sorted(set(mesh_data[1]), reverse=True), sorted(set(mesh_data[2]), reverse=True)]
+    changed = True
+    iteration_count = 0  # Initialize iteration counter
+    max_iterations = 10  # Set maximum iterations to avoid infinite loop
+    while changed and iteration_count < max_iterations:
+        # lines = [sorted(set(mesh_data[0]), reverse=True), sorted(set(mesh_data[1]), reverse=True), sorted(set(mesh_data[2]), reverse=True)]
+        differences = np.diff(lines[0])  # Precompute differences (reverse order for descending)
+        changed = False
+        for i in range(1, len(differences) - 1):
+            # Check if the difference between two consecutive x values is greater than 2 times the difference between the next two consecutive z values
+            if abs(np.round(differences[i + 1] / differences[i], 1)) == 2:
+                # Add extra lines between these two x values
+                lines_to_add = lines[0][i+1] - abs(lines[0][i+1]-lines[0][i])
+                lines[0].append(lines_to_add)
+                mesh_data[0].append(lines_to_add)
+                lines[0] = sorted(set(lines[0]), reverse=True)  # Re-sort in descending order and remove duplicates
+                differences = np.diff(lines[0])  # Recompute differences (reverse order for descending)
+                changed = True
+            if abs(np.round(differences[i + 1] / differences[i], 1)) > 2:
+                # Add extra lines between these two x values
+                lines_to_add = lines[0][i+1] - 1.3*abs(lines[0][i+1]-lines[0][i])
+                lines[0].append(lines_to_add)
+                mesh_data[0].append(lines_to_add)
+                lines[0] = sorted(set(lines[0]), reverse=True)  # Re-sort in descending order and remove duplicates
+                differences = np.diff(lines[0])
+                changed = True
+        iteration_count += 1  # Increment iteration counter
+
+    lines = [sorted(set(mesh_data[0])), sorted(set(mesh_data[1])), sorted(set(mesh_data[2]))]
+    changed = True
+    iteration_count = 0  # Initialize iteration counter
+    max_iterations = 10  # Set maximum iterations to avoid infinite loop
+    while changed and iteration_count < max_iterations:
+        differences = np.diff(lines[1])
+        changed = False
+        for i in range(1, len(differences) - 1):
+            if abs(np.round(differences[i + 1] / differences[i], 1)) == 2:
+                lines_to_add = lines[1][i+1] + abs(lines[1][i+1]-lines[1][i])
+                lines[1].append(lines_to_add)
+                mesh_data[1].append(lines_to_add)
+                lines[1] = sorted(set(lines[1]))
+                differences = np.diff(lines[1])
+                changed = True
+            if abs(np.round(differences[i + 1] / differences[i], 1)) > 2:
+                lines_to_add = lines[1][i+1] + 1.3*abs(lines[1][i+1]-lines[1][i])
+                lines[1].append(lines_to_add)
+                mesh_data[1].append(lines_to_add)
+                lines[1] = sorted(set(lines[1]))
+                differences = np.diff(lines[1])
+                changed = True
+        iteration_count += 1  # Increment iteration counter
+    lines = [sorted(set(mesh_data[0]), reverse=True), sorted(set(mesh_data[1]), reverse=True), sorted(set(mesh_data[2]), reverse=True)]
+    changed = True
+    iteration_count = 0  # Initialize iteration counter
+    max_iterations = 10  # Set maximum iterations to avoid infinite loop
+    while changed and iteration_count < max_iterations:
+        differences = np.diff(lines[1])
+        changed = False
+        for i in range(1, len(differences) - 1):
+            if abs(np.round(differences[i + 1] / differences[i], 1)) == 2:
+                lines_to_add = lines[1][i+1] - abs(lines[1][i+1]-lines[1][i])
+                lines[1].append(lines_to_add)
+                mesh_data[1].append(lines_to_add)
+                lines[1] = sorted(set(lines[1]), reverse=True)
+                differences = np.diff(lines[1])
+                changed = True
+            if abs(np.round(differences[i + 1] / differences[i], 1)) > 2:
+                lines_to_add = lines[1][i+1] - 1.3*abs(lines[1][i+1]-lines[1][i])
+                lines[1].append(lines_to_add)
+                mesh_data[1].append(lines_to_add)
+                lines[1] = sorted(set(lines[1]), reverse=True)
+                differences = np.diff(lines[1])
+                changed = True
+        iteration_count += 1  # Increment iteration counter
+        
     mesh_data[0] = process_mesh_data(mesh_data[0], automesher.min_cellsize, x_edges)
     mesh_data[1] = process_mesh_data(mesh_data[1], automesher.min_cellsize, y_edges)
     mesh_data[2] = process_mesh_data(mesh_data[2], automesher.min_cellsize_z, z_coords)
