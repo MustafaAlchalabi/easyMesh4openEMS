@@ -35,30 +35,30 @@ def get_mesh_parameters(automesher):
             else:
                 raise ValueError('Please provide start and stop frequency or f0 and fc in the global mesh setup')
             epsilon = 1
-            mesh_res = automesher.global_mesh_setup.get('mesh_resolution', 'medium')
-            if mesh_res == 'low':
-                mesh_res = automesher.wave_length / (15 * epsilon**0.5)
-                automesher.max_cellsize_air = automesher.wave_length / 15 
+            mesh_resolution = automesher.global_mesh_setup.get('mesh_resolution', 'medium')
+            if mesh_resolution == 'low':
+                mesh_res = automesher.wave_length / (10 * epsilon**0.5)
+                automesher.max_cellsize_air = automesher.wave_length / 10 
                 num_lines = 4
-            elif mesh_res == 'medium':
-                mesh_res = automesher.wave_length / (20 * epsilon**0.5) 
-                automesher.max_cellsize_air = automesher.wave_length / 20
+            elif mesh_resolution == 'medium':
+                mesh_res = automesher.wave_length / (15 * epsilon**0.5) 
+                automesher.max_cellsize_air = automesher.wave_length / 15
                 num_lines = 5
-            elif mesh_res == 'high':
+            elif mesh_resolution == 'high':
+                mesh_res = automesher.wave_length / (20 * epsilon**0.5)
+                automesher.max_cellsize_air = automesher.wave_length / 20
+                num_lines = 6
+            elif mesh_resolution == 'very_high':
                 mesh_res = automesher.wave_length / (25 * epsilon**0.5)
                 automesher.max_cellsize_air = automesher.wave_length / 25
-                num_lines = 6
-            elif mesh_res == 'very_high':
-                mesh_res = automesher.wave_length / (30 * epsilon**0.5)
-                automesher.max_cellsize_air = automesher.wave_length / 30
                 num_lines = 7
-            elif mesh_res == 'extreme':
+            elif mesh_resolution == 'extreme':
                 mesh_res = automesher.wave_length / (100 * epsilon**0.5)
                 automesher.max_cellsize_air = automesher.wave_length / 40
                 num_lines = 12
             else:
-                mesh_res = automesher.wave_length / (20 * epsilon**0.5)   
-                automesher.max_cellsize_air = automesher.wave_length / 20
+                mesh_res = automesher.wave_length / (15 * epsilon**0.5)   
+                automesher.max_cellsize_air = automesher.wave_length / 15
                 num_lines = 5
             # print('primitives_with_epsilon:', automesher.primitives_with_epsilon)
             return mesh_res, num_lines
@@ -73,7 +73,10 @@ def get_mesh_parameters(automesher):
         if automesher.mesh_res is None:
             automesher.mesh_res, automesher.num_lines = get_mesh_res()
 
-        automesher.max_cellsize = automesher.global_mesh_setup.get('max_cellsize', get_mesh_res()[0])    
+        if automesher.global_mesh_setup.get('num_lines', None) is not None:
+            automesher.num_lines = automesher.global_mesh_setup.get('num_lines')+2
+
+        automesher.max_cellsize = automesher.global_mesh_setup.get('max_cellsize', get_mesh_res()[0])  
         print('automesher.mesh_res:', automesher.mesh_res)
         automesher.min_cellsize = automesher.global_mesh_setup.get('min_cellsize', automesher.mesh_res / 4)
         automesher.max_res = automesher.min_cellsize + 0.25 * automesher.min_cellsize
@@ -151,6 +154,9 @@ def adjust_mesh_parameters(automesher, unique_xedges, unique_yedges, z_coords, d
                 check_max_resolution(automesher, diagonal_edges, unique_xedges, unique_yedges, automesher.mesh_res, automesher.max_res, mesh_data)
             if automesher.min_cellsize_changed:
                 print('min_cellsize changed')
+            if automesher.global_mesh_setup.get('min_cellsize_z', None) is not None:
+                automesher.min_cellsize_z = automesher.global_mesh_setup.get('min_cellsize_z')
+                automesher.max_res_z = automesher.min_cellsize_z + 0.25 * automesher.min_cellsize_z
             print('min_cellsize:', automesher.min_cellsize)
             print('mesh_res:', automesher.mesh_res)
             print('num_lines:', automesher.num_lines)
@@ -755,7 +761,7 @@ def add_graded_mesh_lines_at_material_transitions(automesher, edges, mesh_data, 
                             if not automesher.min_cellsize_changed:
                                 target_size = automesher.max_cellsize_air / epsilon**0.5
                             else:
-                                target_size = automesher_mesh_res
+                                target_size = automesher.mesh_res
                             lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]-target_size, automesher.min_cellsize, target_size, 1.3)
                             mesh_data.extend(lines)
                             lines = add_graded_mesh_lines(automesher, edges[i][0], edges[i][0]+target_size, automesher.min_cellsize, target_size, 1.3)
