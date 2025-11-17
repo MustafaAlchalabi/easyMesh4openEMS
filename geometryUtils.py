@@ -85,7 +85,7 @@ def process_primitive(prim, x, y, x_edges, y_edges, diagonal_edges):
         x.extend(port_coords_x)
         y.extend(port_coords_y)
         collect_edges(port_coords_x, port_coords_y, prim, x_edges, y_edges, diagonal_edges)
-    elif prim.GetType() == CSPrimitives.BOX:
+    elif prim.GetType() == CSPrimitives.PrimitiveType.BOX:
         box_coords_x, box_coords_y, box_coords_z = tranfer_box_to_polygon(prim)
         x.extend(box_coords_x)
         y.extend(box_coords_y)
@@ -109,10 +109,10 @@ def collect_edges(x_coords, y_coords, prim, x_edges, y_edges, diagonal_edges):
             y_edges.append([y_coords[i], x_coords[i], x_coords[i + 1], prim, False])
 
 def collect_z_coordinates(polygon):
-    z = [(prim.GetElevation(), prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() != CSPrimitives.BOX]
-    z.extend((prim.GetElevation() + prim.GetLength(), prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.LINPOLY)
-    box_coords_z = [(tranfer_box_to_polygon(prim)[2][0], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.BOX]
-    box_coords_z.extend((tranfer_box_to_polygon(prim)[2][1], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.BOX)
+    z = [(prim.GetElevation(), prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() != CSPrimitives.PrimitiveType.BOX]
+    z.extend((prim.GetElevation() + prim.GetLength(), prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.LINPOLY)
+    box_coords_z = [(tranfer_box_to_polygon(prim)[2][0], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.BOX]
+    box_coords_z.extend((tranfer_box_to_polygon(prim)[2][1], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.BOX)
     z = list(set(z))
     z.sort(key=lambda x: x[0])
     z.extend(box_coords_z)
