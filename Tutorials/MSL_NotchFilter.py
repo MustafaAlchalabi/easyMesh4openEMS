@@ -21,7 +21,7 @@ substrate_thickness = 254
 substrate_epr = 3.66
 stub_length = 12e3
 f_max = 7e9
-resolution = C0/(f_max*sqrt(substrate_epr))/unit/30 # resolution of lambda/30
+resolution = C0/(f_max*sqrt(substrate_epr))/unit/25 # resolution of lambda/30
 
 # Initialize the FDTD simulator
 FDTD = openEMS()
@@ -44,7 +44,6 @@ global_mesh_setup = {
     'mesh_resolution': 'medium',                               # Options: 'low', 'medium', 'high', 'very_high'
     'smooth_metal_edge': 'extra_lines',                        # useful for thin metal layers, Options: False, 'one_third_two_thirds', 'extra_lines'
     'boundary_distance': [None, None, None, None, None, 3000], # Options: value, 'auto' or None
-    'refined_cellsize': 500
 }
 
 # Enhance the CSX and FDTD objects for automatic mesh optimization

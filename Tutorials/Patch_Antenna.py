@@ -48,7 +48,7 @@ global_mesh_setup = {
     'stop_frequency': f_max,                                              
     'smooth_metal_edge': 'one_third_two_thirds',                          # useful for thin metal layers, Options: False, 'one_third_two_thirds', 'extra_lines'
     'mesh_resolution': 'medium',                                          # Options: 'low', 'medium', 'high', 'very_high'
-    'boundary_distance': ['auto', 'auto', 'auto', 'auto', None, 'auto'],  # Options: value, 'auto', or None
+    'boundary_distance': [21000, 21000, 21000, 21000, None, 21000],  # Options: value, 'auto', or None
 }
 
 # Enhance the CSX and FDTD objects for automatic mesh optimization

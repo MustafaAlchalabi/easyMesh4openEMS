@@ -81,7 +81,7 @@ global_mesh_setup = {
     'start_frequency': fstart,
     'stop_frequency': fstop,
     'mesh_resolution': 'medium', # 'low', 'medium', 'high', 'very_high'
-    'use_circle_detection': True, 
+    # 'use_circle_detection': True, 
     'boundary_distance': ['auto', 'auto', 'auto', 'auto', 'auto', 'auto'], # value, 'auto' or None
     # 'handle_closely_placed_edges': True,  # if True, then mesher will try to handle close placed edges by merging them
     # 'refined_cellsize': 2,
@@ -386,7 +386,7 @@ pts_y = r_[pts_y, 283.370]
 pts_x = r_[pts_x, -22.610]
 pts_y = r_[pts_y, 283.370]
 pts = np.array([pts_x, pts_y])
-polygon6 = TopVia2.AddLinPoly(priority=100, points=pts, norm_dir ='z', elevation=TopVia2_zmin, length=TopVia2_thick)
+polygon6 = TopVia2.AddLinPoly(priority=50, points=pts, norm_dir ='z', elevation=TopVia2_zmin, length=TopVia2_thick)
 
 pts_x = np.array([])
 pts_y = np.array([])
@@ -406,7 +406,7 @@ pts_y = r_[pts_y, 268.370]
 # pts_x = radius * np.cos(theta) + (11.850 + radius)
 # pts_y = radius * np.sin(theta) + (257.620 + radius)
 pts = np.array([pts_x, pts_y])
-polygon7 = TopVia2.AddLinPoly(priority=100, points=pts, norm_dir ='z', elevation=TopVia2_zmin, length=TopVia2_thick)
+polygon7 = TopVia2.AddLinPoly(priority=50, points=pts, norm_dir ='z', elevation=TopVia2_zmin, length=TopVia2_thick)
 
 pts_x = np.array([])
 pts_y = np.array([])
@@ -419,7 +419,7 @@ pts_y = r_[pts_y, 56.370]
 pts_x = r_[pts_x, -33.580]
 pts_y = r_[pts_y, 56.370]
 pts = np.array([pts_x, pts_y])
-polygon8 = TopVia2.AddLinPoly(priority=100, points=pts, norm_dir ='z', elevation=TopVia2_zmin, length=TopVia2_thick)
+polygon8 = TopVia2.AddLinPoly(priority=50, points=pts, norm_dir ='z', elevation=TopVia2_zmin, length=TopVia2_thick)
 
 pts_x = np.array([])
 pts_y = np.array([])
@@ -444,7 +444,7 @@ pts_y = r_[pts_y, 56.370]
 # # create a polygon from the circle points
 
 pts = np.array([pts_x, pts_y])
-polygon9 = TopVia2.AddLinPoly(priority=100, points=pts, norm_dir ='z', elevation=TopVia2_zmin, length=TopVia2_thick)
+polygon9 = TopVia2.AddLinPoly(priority=50, points=pts, norm_dir ='z', elevation=TopVia2_zmin, length=TopVia2_thick)
 
 # Bounding box of geometry
 geometry_xmin= -127.000
