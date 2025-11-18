@@ -77,7 +77,6 @@ def get_mesh_parameters(automesher):
             automesher.num_lines = automesher.global_mesh_setup.get('num_lines')+2
 
         automesher.max_cellsize = automesher.global_mesh_setup.get('max_cellsize', get_mesh_res()[0])  
-        print('automesher.mesh_res:', automesher.mesh_res)
         automesher.min_cellsize = automesher.global_mesh_setup.get('min_cellsize', automesher.mesh_res / 4)
         automesher.max_res = automesher.min_cellsize + 0.25 * automesher.min_cellsize
 
@@ -148,9 +147,7 @@ def adjust_mesh_parameters(automesher, unique_xedges, unique_yedges, z_coords, d
             if automesher.global_mesh_setup.get('min_cellsize', None) is not None:
                 automesher.min_cellsize = automesher.global_mesh_setup.get('min_cellsize')
                 automesher.max_res = automesher.min_cellsize + 0.25 * automesher.min_cellsize
-                
-
-            if not automesher.min_cellsize_changed:
+            if not automesher.min_cellsize_changed and automesher.global_mesh_setup.get('min_cellsize', None) is None:
                 check_max_resolution(automesher, diagonal_edges, unique_xedges, unique_yedges, automesher.mesh_res, automesher.max_res, mesh_data)
             if automesher.min_cellsize_changed:
                 print('min_cellsize changed')
@@ -300,8 +297,8 @@ def handle_diagonal_edges(automesher, otheredges, x_edges, y_edges, mesh_data, d
             norm_product = np.linalg.norm([line1[1] - line1[0], line1[3] - line1[2]]) * np.linalg.norm([line2[1] - line2[0], line2[3] - line2[2]])
             cos_angle = np.clip(dot_product / norm_product, -1.0, 1.0)
             angle = np.round(np.rad2deg(np.arccos(cos_angle)), 2)
-            # if diagonal_edges[i][4].GetElevation() != diagonal_edges[j][4].GetElevation():
-            #     continue
+            if diagonal_edges[i][4].GetElevation() != diagonal_edges[j][4].GetElevation():
+                continue
             if abs(diagonal_edges[i][4].GetElevation() - diagonal_edges[j][4].GetElevation()) < automesher.mesh_res and abs(diagonal_edges[i][4].GetElevation() - diagonal_edges[j][4].GetElevation()) > 0:
                 continue
             if diagonal_edges[i][4] == diagonal_edges[j][4] and (angle not in [0, 180]):
@@ -340,7 +337,7 @@ def handle_diagonal_edges(automesher, otheredges, x_edges, y_edges, mesh_data, d
             x = np.round(np.diff(np.linspace(0, np.min([item[0] for item in dist0]), automesher.num_lines)),1)
             if np.min(x) < automesher.max_res and np.min(x) > 0:
                 automesher.max_res = np.min(x)
-
+    start_and_end_points_list = []
     if dist and not check_max_resolution:   
         for dist1 in dist:
             if direction == 'x':
@@ -348,48 +345,34 @@ def handle_diagonal_edges(automesher, otheredges, x_edges, y_edges, mesh_data, d
                 resolution = automesher.mesh_res * np.cos(np.deg2rad(alpha))
                 # start_and_end_points = [line1[0], line1[1], line2[0], line2[1]]
                 start_and_end_points = [dist1[0][2][0], dist1[0][3][0], dist1[0][4][0], dist1[0][5][0]]
+                start_and_end_points_list.append(start_and_end_points)
             if direction == 'y':
                 coords_of_p = [item[1][1] for item in dist1]
                 resolution = automesher.mesh_res * np.sin(np.deg2rad(alpha))
                 # start_and_end_points = [line1[2], line1[3], line2[2], line2[3]]
                 start_and_end_points = [dist1[0][2][1], dist1[0][3][1], dist1[0][4][1], dist1[0][5][1]]
+                start_and_end_points_list.append(start_and_end_points)
             lines_in_range = [lines for lines in mesh_data if np.min(coords_of_p) <= lines <= np.max(coords_of_p)]
             for line in lines_in_range:
+                if any(line in start_and_end_points for start_and_end_points in start_and_end_points_list):
+                    continue
                 mesh_data.remove(line)
-            lines_before_min = [line for line in mesh_data if line < np.min(coords_of_p) and abs(line - np.min(coords_of_p)) < automesher.max_res]
-            lines_after_max = [line for line in mesh_data if line > np.max(coords_of_p) and abs(line - np.max(coords_of_p)) < automesher.max_res]
 
-            lines = check_edges_in_range(unique_edges, np.min(coords_of_p), np.max(coords_of_p), start_and_end_points, mesh_data, automesher.max_res)
+            lines = check_edges_in_range(unique_edges, np.min(coords_of_p), np.max(coords_of_p), start_and_end_points, start_and_end_points_list, mesh_data, automesher.max_res)
             mesh_data.extend(lines)
 
-            # if lines_before_min and lines_after_max:
-            #     min_line = min(min(lines_before_min), min(lines_after_max))
-            #     max_line = max(max(lines_before_min), max(lines_after_max))
-            #     lines = check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points, mesh_data, automesher.max_res)
-            #     mesh_data.extend(lines)                        
-            # elif lines_before_min:
-            #     min_line = min(min(lines_before_min), np.min(coords_of_p))
-            #     max_line = max(max(lines_before_min), np.max(coords_of_p))
-            #     lines = check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points, mesh_data, automesher.max_res)
-            #     mesh_data.extend(lines)
-            # elif lines_after_max:
-            #     min_line = min(min(lines_after_max), np.min(coords_of_p))
-            #     max_line = max(max(lines_after_max), np.max(coords_of_p))
-            #     lines = check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points, mesh_data, automesher.max_res)
-            #     mesh_data.extend(lines)
-            # else:
-            #     min_line = np.min(coords_of_p)
-            #     max_line = np.max(coords_of_p)
-            #     lines = check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points, mesh_data, automesher.max_res)
-            #     mesh_data.extend(lines)
-
-def check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points, mesh_data, resolution):
+def check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points, start_and_end_points_list, mesh_data, resolution):
     edges_in_range = [edge for edge in unique_edges if min_line < edge < max_line]
     if edges_in_range:
         lines_in_range = [line for line in mesh_data if min(min_line, max_line, min(start_and_end_points)) <= line <= max(min_line, max_line, max(start_and_end_points))]
         if lines_in_range:
             for line in lines_in_range:
+                if any(line in start_and_end_points for start_and_end_points in start_and_end_points_list):
+                    continue
+                lines_in_range.remove(line)
                 mesh_data.remove(line)
+        if lines_in_range:
+            edges_in_range.extend(lines_in_range)
         edges_in_range.extend([min_line, max_line])
         edges_in_range.extend(start_and_end_points)  
         lines=SmoothMeshLines(edges_in_range, resolution/1)
@@ -397,7 +380,12 @@ def check_edges_in_range(unique_edges, min_line, max_line, start_and_end_points,
         lines_in_range = [line for line in mesh_data if min(min_line, max_line) <= line <= max(min_line, max_line)]
         if lines_in_range:
             for line in lines_in_range:
+                if any(line in start_and_end_points for start_and_end_points in start_and_end_points_list):
+                    continue
+                lines_in_range.remove(line)
                 mesh_data.remove(line)
+        if lines_in_range:
+            edges_in_range.extend(lines_in_range)
         # edges_in_range.extend(start_and_end_points)
         edges_in_range.extend([min_line, max_line])  
         lines=SmoothMeshLines(edges_in_range, resolution/1)
