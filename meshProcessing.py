@@ -117,7 +117,7 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
         if lines_to_be_smoothed:
             already_smoothed[1].append((map[0], map[1]))
             mesh_data[1].extend(SmoothMeshLines(lines_to_be_smoothed, max_cellsize, 1.3).tolist())
-            
+
     for map in mesh_map[2]:
         max_cellsize = automesher.max_cellsize_air / map[2]**0.5
         lines_to_be_smoothed = sorted(set(float(line) for line in mesh_data[2] if map[0] <= line <= map[1]))
@@ -125,6 +125,8 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
               any(map[1] == start or map[1] == end for start, end in tmp_mesh_with_max_cell_size[2]):
             continue
         if lines_to_be_smoothed:
+            if len(lines_to_be_smoothed) < 2:
+                continue
             mesh_data[2].extend(SmoothMeshLines(lines_to_be_smoothed, max_cellsize, 1.3).tolist())
 
     if automesher.min_cellsize_changed:
@@ -140,6 +142,10 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
                     lines_to_add_in_lines_in_range = sorted(set(lines_to_add_in_lines_in_range))
                     lines_in_range_in_mesh_data = [line for line in mesh_data[0] if start < line < end]
                     mean_resolution_in_mesh_data = np.mean(np.diff(lines_in_range_in_mesh_data)) if lines_in_range_in_mesh_data else automesher.max_cellsize/2
+                    if len(lines_in_range_in_mesh_data) >= 2:
+                        mean_resolution_in_mesh_data = np.mean(np.diff(lines_in_range_in_mesh_data))
+                    else:
+                        mean_resolution_in_mesh_data = automesher.max_cellsize / 2
                     if lines_in_range_in_mesh_data and mean_resolution_in_mesh_data > automesher.mesh_res:
                         skipping_list.append(True)
                     else:
@@ -147,7 +153,10 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
                 else:
                     lines_to_add_in_lines_in_range = []
                 lines_in_range.append(lines_to_add_in_lines_in_range)
-                mean_resolution.append(np.mean(np.diff(lines_to_add_in_lines_in_range)) if lines_to_add_in_lines_in_range else automesher.max_cellsize/2)
+                if len(lines_to_add_in_lines_in_range) >= 2:
+                    mean_resolution.append(np.mean(np.diff(lines_to_add_in_lines_in_range)))
+                else:
+                    mean_resolution.append(automesher.max_cellsize / 2)
             if lines_in_range and mean_resolution:
                 for i in range(len(lines_in_range)):
                     if lines_in_range[i]:
@@ -170,7 +179,10 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
                 if lines_to_add_in_lines_in_range:
                     lines_to_add_in_lines_in_range = sorted(set(lines_to_add_in_lines_in_range))
                     lines_in_range_in_mesh_data = [line for line in mesh_data[1] if start < line < end]
-                    mean_resolution_in_mesh_data = np.mean(np.diff(lines_in_range_in_mesh_data)) if lines_in_range_in_mesh_data else automesher.max_cellsize/2
+                    if len(lines_in_range_in_mesh_data) >= 2:
+                        mean_resolution_in_mesh_data = np.mean(np.diff(lines_in_range_in_mesh_data))
+                    else:
+                        mean_resolution_in_mesh_data = automesher.max_cellsize / 2
                     if lines_in_range_in_mesh_data and mean_resolution_in_mesh_data > automesher.mesh_res:
                         skipping_list.append(True)
                     else:
@@ -178,7 +190,11 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
                 else:
                     lines_to_add_in_lines_in_range = []
                 lines_in_range.append(lines_to_add_in_lines_in_range)
-                mean_resolution.append(np.mean(np.diff(lines_to_add_in_lines_in_range)) if lines_to_add_in_lines_in_range else automesher.max_cellsize/2)
+                if len(lines_to_add_in_lines_in_range) >= 2:
+                    mean_resolution.append(np.mean(np.diff(lines_to_add_in_lines_in_range)))
+                else:
+                    mean_resolution.append(automesher.max_cellsize / 2)
+            
             if lines_in_range and mean_resolution:
                 for i in range(len(lines_in_range)):
                     if lines_in_range[i]:
@@ -187,7 +203,7 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
             for start, end in automesher.mesh_with_max_cell_size[1]:
                 lines_to_add = [line for line in lines if (start < line < end)]
                 mesh_data[1].extend(lines_to_add)
-                
+
         if automesher.mesh_with_max_cell_size[2]:
             lines = SmoothMeshLines(mesh_data[2], automesher.max_cellsize/2, 1.3).tolist()
             lines = sorted(set(lines))
@@ -200,6 +216,10 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
                     lines_to_add_in_lines_in_range = sorted(set(lines_to_add_in_lines_in_range))
                     lines_in_range_in_mesh_data = [line for line in mesh_data[2] if start < line < end]
                     mean_resolution_in_mesh_data = np.mean(np.diff(lines_in_range_in_mesh_data)) if lines_in_range_in_mesh_data else automesher.max_cellsize/2
+                    if len(lines_in_range_in_mesh_data) >= 2:
+                        mean_resolution_in_mesh_data = np.mean(np.diff(lines_in_range_in_mesh_data))
+                    else:
+                        mean_resolution_in_mesh_data = automesher.max_cellsize / 2
                     if lines_in_range_in_mesh_data and mean_resolution_in_mesh_data > automesher.mesh_res:
                         skipping_list.append(True)
                     else:
@@ -207,7 +227,10 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
                 else:
                     lines_to_add_in_lines_in_range = []
                 lines_in_range.append(lines_to_add_in_lines_in_range)
-                mean_resolution.append(np.mean(np.diff(lines_to_add_in_lines_in_range)) if lines_to_add_in_lines_in_range else automesher.max_cellsize/2)
+                if len(lines_to_add_in_lines_in_range) >= 2:
+                    mean_resolution.append(np.mean(np.diff(lines_to_add_in_lines_in_range)))
+                else:
+                    mean_resolution.append(automesher.max_cellsize / 2)
             if lines_in_range and mean_resolution:
                 for i in range(len(lines_in_range)):
                     if lines_in_range[i]:
@@ -335,7 +358,6 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
     lines = [sorted(set(mesh_data[0]), reverse=True), sorted(set(mesh_data[1]), reverse=True), sorted(set(mesh_data[2]), reverse=True)]
     changed = True
     iteration_count = 0  # Initialize iteration counter
-    max_iterations = 10  # Set maximum iterations to avoid infinite loop
     while changed and iteration_count < max_iterations:
         # lines = [sorted(set(mesh_data[0]), reverse=True), sorted(set(mesh_data[1]), reverse=True), sorted(set(mesh_data[2]), reverse=True)]
         differences = np.diff(lines[0])  # Precompute differences (reverse order for descending)
@@ -363,7 +385,6 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
     lines = [sorted(set(mesh_data[0])), sorted(set(mesh_data[1])), sorted(set(mesh_data[2]))]
     changed = True
     iteration_count = 0  # Initialize iteration counter
-    max_iterations = 10  # Set maximum iterations to avoid infinite loop
     while changed and iteration_count < max_iterations:
         differences = np.diff(lines[1])
         changed = False
@@ -386,7 +407,6 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
     lines = [sorted(set(mesh_data[0]), reverse=True), sorted(set(mesh_data[1]), reverse=True), sorted(set(mesh_data[2]), reverse=True)]
     changed = True
     iteration_count = 0  # Initialize iteration counter
-    max_iterations = 10  # Set maximum iterations to avoid infinite loop
     while changed and iteration_count < max_iterations:
         differences = np.diff(lines[1])
         changed = False
