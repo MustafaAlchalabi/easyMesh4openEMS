@@ -1,9 +1,9 @@
 import numpy as np
-from CSXCAD import CSPrimitives, CSProperties
-from CSXCAD.Utilities import CheckNyDir, GetMultiDirs
-from CSXCAD.SmoothMeshLines import SmoothMeshLines
-from decorateOriginalMethods import CSXWrapper, FDTDWrapper
-import geometryUtils, meshingUtils, meshProcessing
+from CSXCAD.Utilities import GetMultiDirs
+from .decorateOriginalMethods import CSXWrapper, FDTDWrapper
+import easyMesh.geometryUtils as geometryUtils
+import easyMesh.meshingUtils as meshingUtils
+import easyMesh.meshProcessing as meshProcessing
 
 def GenerateMesh(CSX, global_mesh_setup, primitives_mesh_setup=None, properties_mesh_setup=None, **kw):
     automesher = Automesher()

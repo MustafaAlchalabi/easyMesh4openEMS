@@ -1,15 +1,12 @@
 # Import necessary libraries and modules
 import os 
-import tempfile 
 from pylab import * 
 from CSXCAD import ContinuousStructure
 from openEMS import openEMS  
 from openEMS.physical_constants import * 
 
-# Add a custom path for easyMesher
-sys.path.append('/home/mustafa_alchalabi/opt/easyMesh4openEMS')
 # Import functions for automatic mesh generation and optimization
-from easyMesher import GenerateMesh, enhance_csx_for_auto_mesh, enhance_FDTD_for_auto_mesh
+from easyMesh import *
 
 # Define the simulation path and global parameters
 Sim_Path = os.path.realpath(os.path.join('.', 'Patch_Antenna'))  # Path to save simulation results

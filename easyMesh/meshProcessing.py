@@ -1,6 +1,8 @@
 from CSXCAD.SmoothMeshLines import SmoothMeshLines
 import numpy as np
-import geometryUtils, meshingUtils
+# import geometryUtils, meshingUtils
+import easyMesh.geometryUtils as geometryUtils
+import easyMesh.meshingUtils as meshingUtils 
 
 def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges, y_edges, z, unique_xedges, unique_yedges, z_coords, mesh_map):
 

@@ -13,38 +13,47 @@ A small, pragmatic **automatic mesh generator** for the Python bindings of **ope
 
 ---
 
-## Installation
+## Installation (local, not published on PyPI)
 
-Clone the repository with
+At the moment the mesher is **not published on PyPI**.  
+You install it **locally from the project folder**:
+
+1. Clone or download this repository.
+2. Open a terminal in the `easyMesh4openEMS` folder (the folder that contains `pyproject.toml`).
+3. Run:
 
 ```bash
-git clone https://github.com/MustafaAlchalabi/easyMesh4openEMS.git
+pip install .
 ```
 
-to `<path of cloned repository>`. In order to import the mesher you have to tell python whese to search for it. For this purpose (as there is no module installation so far) either add 
-
-```bash
-export PYTHONPATH=/<path with cloned repository>/easyMesh4openEMS:$PYTHONPATH
-```
-to your `.bashrc` or `.profile`, etc. or append 
+After that, you can import the package like this:
 
 ```python
-import sys
-sys.path.append('/<path with cloned repository>/easyMesh4openEMS')
+from easyMesh import GenerateMesh, enhance_csx_for_auto_mesh, enhance_FDTD_for_auto_mesh
 ```
 
-in your Python script before importing. Then import:
+> **Note:**  
+> - The **distribution** is installed from the local folder with `pip install .`.  
+> - The **Python package name** (for `import`) is `easyMesh`.
+
+### Requirements
+
+You need:
+
+- Python ≥ 3.7  
+- `numpy` (installed automatically via `pip install .`)  
+- Working Python bindings for:
+  - `openEMS`
+  - `CSXCAD`
+
+Make sure you can do e.g.:
 
 ```python
-import sys
-sys.path.append('/<path-to>/easyMesh4openEMS')
+from openEMS import openEMS
+from CSXCAD import ContinuousStructure
 ```
 
-Then import:
-
-```python
-from easyMesher import GenerateMesh, enhance_csx_for_auto_mesh, enhance_FDTD_for_auto_mesh
-```
+before using `easyMesh4openEMS`.
 
 ---
 
@@ -53,7 +62,7 @@ from easyMesher import GenerateMesh, enhance_csx_for_auto_mesh, enhance_FDTD_for
 ```python
 import openEMS
 from CSXCAD import CSXCAD
-from easyMesher import GenerateMesh, enhance_csx_for_auto_mesh, enhance_FDTD_for_auto_mesh
+from easyMesh import GenerateMesh, enhance_csx_for_auto_mesh, enhance_FDTD_for_auto_mesh
 
 # 1) Create your FDTD/CSX as usual
 FDTD = openEMS()
@@ -189,9 +198,17 @@ Take a look for the examples in the Tutorials folder
 
 ## Troubleshooting
 
-* **ImportError for openEMS/CSXCAD**: ensure their Python modules are installed and on `PYTHONPATH`.
-* **Mesh looks too coarse/fine**: adjust `mesh_resolution` or set `refined_cellsize`/`min_cellsize` directly.
-* **Very dense mesh near tiny gaps**: expected; increase `min_cellsize` or simplify geometry.
+- **`ImportError: No module named 'openEMS'` or `'CSXCAD'`**  
+  Make sure the Python bindings for openEMS and CSXCAD are installed and on your `PYTHONPATH`.
+
+- **Mesh is too coarse / too fine**  
+  - Adjust `mesh_resolution` (`low` ↔ `very_high`) or set `refined_cellsize`/`min_cellsize` directly.
+
+- **Very dense mesh near tiny gaps**  
+  This is usually intentional to resolve small features.  
+  If it is too dense:
+  - Increase any minimum cell size parameters you use.
+  - Slightly enlarge gaps in your geometry if physically acceptable.
 
 ---
 

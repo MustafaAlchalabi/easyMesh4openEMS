@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "easyMesh4openEMS"
+version = "0.0.1"
+authors = [
+  { name="Mustafa Alchalabi" },
+]
+description = "AutoMesher for openEMS (easyMesh4openEMS)"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/MustafaAlchalabi/easyMesh4openEMS"
+"Bug Tracker" = "https://github.com/MustafaAlchalabi/easyMesh4openEMS/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]  

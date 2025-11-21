@@ -1,10 +1,9 @@
 from CSXCAD.SmoothMeshLines import SmoothMeshLines
 from openEMS.physical_constants import C0
-from CSXCAD import CSPrimitives, CSProperties
-from openEMS import ports
+from CSXCAD import  CSProperties
 import openEMS
 import numpy as np
-import geometryUtils
+import easyMesh.geometryUtils as geometryUtils
 
 def check_grid(automesher, grid, mesh_data):
     x, y, z = grid.GetLines(0), grid.GetLines(1), grid.GetLines(2)

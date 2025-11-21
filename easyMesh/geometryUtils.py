@@ -1,9 +1,6 @@
 from CSXCAD import CSPrimitives, CSProperties
-from openEMS import ports
 import openEMS
 import numpy as np
-from CSXCAD.SmoothMeshLines import SmoothMeshLines
-
 
 def process_polygon(automesher, polygon, x, y, z, x_edges, y_edges, diagonal_edges, mesh_data):
     # Check if the input is a list of primitives

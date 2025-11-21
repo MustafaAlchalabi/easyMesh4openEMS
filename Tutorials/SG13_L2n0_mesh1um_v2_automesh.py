@@ -19,8 +19,7 @@ from CSXCAD  import ContinuousStructure
 from openEMS import openEMS
 from openEMS.physical_constants import *
 
-sys.path.append('/home/opt/easyMesh4openEMS')
-from easyMesher import GenerateMesh, enhance_csx_for_auto_mesh, enhance_FDTD_for_auto_mesh
+from easyMesh import *
 
 # preview model/mesh only?
 # postprocess existing data without re-running simulation?
