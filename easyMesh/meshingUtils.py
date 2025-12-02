@@ -76,7 +76,8 @@ def get_mesh_parameters(automesher):
             automesher.num_lines = automesher.global_mesh_setup.get('num_lines')+2
 
         automesher.max_cellsize = automesher.global_mesh_setup.get('max_cellsize', get_mesh_res()[0])  
-        automesher.min_cellsize = automesher.global_mesh_setup.get('min_cellsize', automesher.mesh_res / 4)
+        # automesher.min_cellsize = automesher.global_mesh_setup.get('min_cellsize', automesher.mesh_res / 4)
+        automesher.min_cellsize = automesher.mesh_res / 4
         automesher.max_res = automesher.min_cellsize + 0.25 * automesher.min_cellsize
 
 def adjust_mesh_parameters(automesher, unique_xedges, unique_yedges, z_coords, diagonal_edges, mesh_data):
@@ -153,6 +154,11 @@ def adjust_mesh_parameters(automesher, unique_xedges, unique_yedges, z_coords, d
             if automesher.global_mesh_setup.get('min_cellsize_z', None) is not None:
                 automesher.min_cellsize_z = automesher.global_mesh_setup.get('min_cellsize_z')
                 automesher.max_res_z = automesher.min_cellsize_z + 0.25 * automesher.min_cellsize_z
+            automesher.min_cellsize = automesher.global_mesh_setup.get('min_cellsize', automesher.min_cellsize)
+            automesher.max_res = automesher.min_cellsize + 0.25 * automesher.min_cellsize
+            automesher.min_cellsize_z = automesher.global_mesh_setup.get('min_cellsize_z', automesher.min_cellsize_z)
+            automesher.max_res_z = automesher.min_cellsize_z + 0.25 * automesher.min_cellsize_z
+
             print('min_cellsize:', automesher.min_cellsize)
             print('mesh_res:', automesher.mesh_res)
             print('num_lines:', automesher.num_lines)
@@ -191,12 +197,14 @@ def get_mesh_map(automesher):
                     tmp_z.extend(geometryUtils.collect_z_coordinates([primitives]))
                 tmp_z = [(z[0]) for z in tmp_z]
 
-                z_boundaries = [min(tmp_z), max(tmp_z), epsilon, prop, None, None, None, None, None]
-                x_boundaries = [min(tmp_x), max(tmp_x), epsilon, prop, tmp_x, tmp_x_edges, tmp_y, tmp_y_edges, z_boundaries]
-                y_boundaries = [min(tmp_y), max(tmp_y), epsilon, prop, tmp_y, tmp_y_edges, tmp_x, tmp_x_edges, z_boundaries]
-                mesh_map[0].extend([x_boundaries])
-                mesh_map[1].extend([y_boundaries])
-                mesh_map[2].extend([z_boundaries])
+                # Only add boundaries if we have valid z-coordinates
+                if tmp_z:
+                    z_boundaries = [min(tmp_z), max(tmp_z), epsilon, prop, None, None, None, None, None]
+                    x_boundaries = [min(tmp_x), max(tmp_x), epsilon, prop, tmp_x, tmp_x_edges, tmp_y, tmp_y_edges, z_boundaries]
+                    y_boundaries = [min(tmp_y), max(tmp_y), epsilon, prop, tmp_y, tmp_y_edges, tmp_x, tmp_x_edges, z_boundaries]
+                    mesh_map[0].extend([x_boundaries])
+                    mesh_map[1].extend([y_boundaries])
+                    mesh_map[2].extend([z_boundaries])
 
     return mesh_map
 
@@ -670,6 +678,18 @@ def handle_circular_segments(automesher, x_edges, mesh_data):
             mesh_data[1] = [line for line in mesh_data[1] if not (min(y_seg) < line < max(y_seg))]
             # Add y lines inside the circle
             mesh_data[1].extend(SmoothMeshLines([min(y_seg), max(y_seg)], automesher.max_res))
+
+    # arcs = geometryUtils.detect_all_arcs_in_polygon(self, polygon)
+
+    # if arcs:
+    #     print(f"{len(arcs)} arc(s) detected:")
+    #     for i, (x_arc, y_arc) in enumerate(arcs):
+    #         print(f"  Arc {i+1}: {len(x_arc)} points: {arcs[i]}")
+    #         # delete mesh lines that are inside the arc
+    #         # mesh_data[0] = [line for line in mesh_data[0] if not (min(x_arc) <= line <= max(x_arc))]
+    #         # mesh_data[1] = [line for line in mesh_data[1] if not (min(y_arc) <= line <= max(y_arc))]
+    # else:
+    #     print("No arcs found in polygon.")
 
 def add_missing_mesh_lines(automesher, unique_edges, sorted_points, diagonal_edges, mesh_data, direction):
     'Check if the first and last point are x or y edges, if not it adds the missing mesh lines between the point and the edge'
