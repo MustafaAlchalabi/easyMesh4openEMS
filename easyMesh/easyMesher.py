@@ -155,18 +155,6 @@ class Automesher:
         # Smooth and process the mesh lines
         meshProcessing.smooth_and_process_mesh_lines(self, mesh_data, polygon, grid, x_edges, y_edges, z_coords, unique_xedges, unique_yedges, z_coords, mesh_map) 
 
-        # arcs = geometryUtils.detect_all_arcs_in_polygon(self, polygon)
-
-        # if arcs:
-        #     print(f"{len(arcs)} arc(s) detected:")
-        #     for i, (x_arc, y_arc) in enumerate(arcs):
-        #         print(f"  Arc {i+1}: {len(x_arc)} points: {arcs[i]}")
-        #         # delete mesh lines that are inside the arc
-        #         # mesh_data[0] = [line for line in mesh_data[0] if not (min(x_arc) <= line <= max(x_arc))]
-        #         # mesh_data[1] = [line for line in mesh_data[1] if not (min(y_arc) <= line <= max(y_arc))]
-        # else:
-        #     print("No arcs found in polygon.")
-
         # If no z-direction mesh_datas exist, set it to None
         if mesh_data[2] == []:
             mesh_data[2] = None
