@@ -88,13 +88,22 @@ def process_primitive(prim, x, y, x_edges, y_edges, diagonal_edges):
         y.extend(box_coords_y)
         collect_edges(box_coords_x, box_coords_y, prim, x_edges, y_edges, diagonal_edges)
     else:
-        xx, yy = prim.GetCoords()[0], prim.GetCoords()[1]
-        x.extend(xx)
-        y.extend(yy)
-        if xx[-1] != xx[0] or yy[-1] != yy[0]:
-            xx = np.append(xx, xx[0])
-            yy = np.append(yy, yy[0])
-        collect_edges(xx, yy, prim, x_edges, y_edges, diagonal_edges)
+        if not prim.GetType() == CSPrimitives.PrimitiveType.CYLINDER:
+            xx, yy = prim.GetCoords()[0], prim.GetCoords()[1]   
+            x.extend(xx)
+            y.extend(yy)
+            if xx[-1] != xx[0] or yy[-1] != yy[0]:
+                xx = np.append(xx, xx[0])
+                yy = np.append(yy, yy[0])
+            collect_edges(xx, yy, prim, x_edges, y_edges, diagonal_edges)
+        if prim.GetType() == CSPrimitives.PrimitiveType.CYLINDER:
+            start = prim.GetStart()
+            stop = prim.GetStop()
+            radius = prim.GetRadius()
+            x_edges.append([start[0], start[1] - radius, start[1] + radius, prim, False])
+            x_edges.append([stop[0], start[1] - radius, start[1] + radius, prim, False])
+            y_edges.append([start[1], start[0] - radius, start[0] + radius, prim, False])
+            y_edges.append([stop[1], start[0] - radius, start[0] + radius, prim, False])
 
 def collect_edges(x_coords, y_coords, prim, x_edges, y_edges, diagonal_edges):
     for i in range(len(x_coords) - 1):
@@ -106,7 +115,7 @@ def collect_edges(x_coords, y_coords, prim, x_edges, y_edges, diagonal_edges):
             y_edges.append([y_coords[i], x_coords[i], x_coords[i + 1], prim, False])
 
 def collect_z_coordinates(polygon):
-    z = [(prim.GetElevation(), prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() != CSPrimitives.PrimitiveType.BOX]
+    z = [(prim.GetElevation(), prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() != CSPrimitives.PrimitiveType.BOX and prim.GetType() != CSPrimitives.PrimitiveType.CYLINDER]
     z.extend((prim.GetElevation() + prim.GetLength(), prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.LINPOLY)
     box_coords_z = [(tranfer_box_to_polygon(prim)[2][0], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.BOX]
     box_coords_z.extend((tranfer_box_to_polygon(prim)[2][1], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.BOX)
