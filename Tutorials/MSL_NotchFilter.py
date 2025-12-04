@@ -1,16 +1,14 @@
-import os, tempfile
+import os
 from pylab import *
 from CSXCAD  import ContinuousStructure
 from openEMS import openEMS
 from openEMS.physical_constants import *
 
-# Add a custom path for easyMesher
-sys.path.append('/home/opt/easyMesh4openEMS')
 # Import functions for automatic mesh generation and optimization
-from easyMesher import GenerateMesh, enhance_csx_for_auto_mesh, enhance_FDTD_for_auto_mesh
+from easyMesh import *
 
 # Define the simulation path and global parameters
-Sim_Path = os.path.join(tempfile.gettempdir(), 'NotchFilter') # Path to save simulation results
+Sim_Path = os.path.realpath(os.path.join('.', 'MSL_NotchFilter_automesh'))  # Path to save simulation results
 post_proc_only = False      # If True, only post-processing will be performed
 unit = 1e-6 # specify everything in um
 
@@ -21,7 +19,7 @@ substrate_thickness = 254
 substrate_epr = 3.66
 stub_length = 12e3
 f_max = 7e9
-resolution = C0/(f_max*sqrt(substrate_epr))/unit/30 # resolution of lambda/50
+resolution = C0/(f_max*sqrt(substrate_epr))/unit/25 # resolution of lambda/30
 
 # Initialize the FDTD simulator
 FDTD = openEMS()
@@ -44,7 +42,6 @@ global_mesh_setup = {
     'mesh_resolution': 'medium',                               # Options: 'low', 'medium', 'high', 'very_high'
     'smooth_metal_edge': 'extra_lines',                        # useful for thin metal layers, Options: False, 'one_third_two_thirds', 'extra_lines'
     'boundary_distance': [None, None, None, None, None, 3000], # Options: value, 'auto' or None
-    'refined_cellsize': 500
 }
 
 # Enhance the CSX and FDTD objects for automatic mesh optimization
@@ -65,7 +62,7 @@ pec.AddBox(start, stop, priority=10 )
 
 # Add 5 lines at least in the excitation direction
 mesh.AddLine('x', [-MSL_length, MSL_length])
-mesh.SmoothMeshLines('x', resolution)
+mesh.SmoothMeshLines('x', resolution*5)
 
 # Add the MSL ports to the geometry
 port = [None, None]
@@ -98,6 +95,24 @@ for p in port:
 
 s11 = port[0].uf_ref / port[0].uf_inc
 s21 = port[1].uf_ref / port[0].uf_inc
+
+# Save the S-parameter results to files
+s11_file = os.path.join(Sim_Path, 's11_results.txt')
+s21_file = os.path.join(Sim_Path, 's21_results.txt')
+
+# Ensure the directory exists
+if not os.path.exists(Sim_Path):
+    os.makedirs(Sim_Path)
+
+# Save s11 results
+with open(s11_file, 'w') as f_s11:
+    for freq, s11_val in zip(f, s11):
+        f_s11.write(f"{freq/1e9:.6f} {20*log10(abs(s11_val)):.6f}\n")
+
+# Save s21 results
+with open(s21_file, 'w') as f_s21:
+    for freq, s21_val in zip(f, s21):
+        f_s21.write(f"{freq/1e9:.6f} {20*log10(abs(s21_val)):.6f}\n")
 
 plot(f/1e9,20*log10(abs(s11)),'k-',linewidth=2 , label='$S_{11}$')
 grid()

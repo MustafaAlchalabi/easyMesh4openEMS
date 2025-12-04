@@ -1,15 +1,12 @@
 # Import necessary libraries and modules
 import os 
-import tempfile 
 from pylab import * 
 from CSXCAD import ContinuousStructure
 from openEMS import openEMS  
 from openEMS.physical_constants import * 
 
-# Add a custom path for easyMesher
-sys.path.append('/home/opt/easyMesh4openEMS')
 # Import functions for automatic mesh generation and optimization
-from easyMesher import GenerateMesh, enhance_csx_for_auto_mesh, enhance_FDTD_for_auto_mesh
+from easyMesh import *
 
 # Define the simulation path and global parameters
 Sim_Path = os.path.realpath(os.path.join('.', 'Patch_Antenna'))  # Path to save simulation results
@@ -28,10 +25,10 @@ f_min = 1.25e9
 f_max = 2.6e9  
 
 # Initialize the FDTD simulator
-FDTD = openEMS(EndCriteria=1e-4)           # Set the simulation end criteria at -40 dB
+FDTD = openEMS(EndCriteria=1e-4, NrTS=1e5)           # Set the simulation end criteria at -40 dB or 1e5 time steps
 FDTD.SetGaussExcite(f_max / 2, f_max / 2)  # Gaussian excitation with center frequency
 # Set boundary conditions: PML (Perfectly Matched Layer) and PEC (Perfect Electric Conductor)
-FDTD.SetBoundaryCond(['PML_8', 'PML_8', 'PML_8', 'PML_8', 'PEC', 'PML_8'])
+FDTD.SetBoundaryCond(['MUR', 'MUR', 'MUR', 'MUR', 'PEC', 'MUR'])
 
 # Create the ContinuousStructure (CSX) for geometry definition
 CSX = ContinuousStructure()
@@ -48,7 +45,7 @@ global_mesh_setup = {
     'stop_frequency': f_max,                                              
     'smooth_metal_edge': 'one_third_two_thirds',                          # useful for thin metal layers, Options: False, 'one_third_two_thirds', 'extra_lines'
     'mesh_resolution': 'medium',                                          # Options: 'low', 'medium', 'high', 'very_high'
-    'boundary_distance': ['auto', 'auto', 'auto', 'auto', None, 'auto'],  # Options: value, 'auto', or None
+    'boundary_distance': [21000, 21000, 21000, 21000, None, 21000],  # Options: value, 'auto', or None
 }
 
 # Enhance the CSX and FDTD objects for automatic mesh optimization
@@ -63,7 +60,7 @@ substrate.AddBox(start, stop, priority=10)
 
 # Add the patch to the geometry
 pec = CSX.AddMetal('patch')  
-pec.SetAttributeValue('setup', '5') 
+# pec.SetAttributeValue('setup', '5') 
 start = [-patch_length, -patch_length, substrate_thickness]  
 stop = [patch_length, patch_length, substrate_thickness]  
 pec.AddBox(start, stop, priority=100)
@@ -92,6 +89,14 @@ if not post_proc_only:
 port.CalcPort(Sim_Path, f, ref_impedance=50)
 
 s11 = port.uf_ref / port.uf_inc 
+
+# Save the s11 parameter in a text file
+output_file = os.path.join(Sim_Path, 's11_results.txt')
+with open(output_file, 'w') as file:
+    for freq, s11_value in zip(f, s11):
+        magnitude = abs(s11_value)
+        phase = angle(s11_value, deg=True)
+        file.write(f"{freq:.12e} {magnitude:.12e} {phase:.12e}\n")
 
 plot(f / 1e9, 20 * log10(abs(s11)), 'k-', linewidth=2, label='$S_{11}$')
 grid() 

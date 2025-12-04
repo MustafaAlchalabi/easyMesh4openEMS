@@ -1,9 +1,9 @@
 import numpy as np
-from CSXCAD import CSPrimitives, CSProperties
-from CSXCAD.Utilities import CheckNyDir, GetMultiDirs
-from CSXCAD.SmoothMeshLines import SmoothMeshLines
-from decorateOriginalMethods import CSXWrapper, FDTDWrapper
-import geometryUtils, meshingUtils, meshProcessing
+from CSXCAD.Utilities import GetMultiDirs
+from .decorateOriginalMethods import CSXWrapper, FDTDWrapper
+import easyMesh.geometryUtils as geometryUtils
+import easyMesh.meshingUtils as meshingUtils
+import easyMesh.meshProcessing as meshProcessing
 
 def GenerateMesh(CSX, global_mesh_setup, primitives_mesh_setup=None, properties_mesh_setup=None, **kw):
     automesher = Automesher()
@@ -41,7 +41,6 @@ class Automesher:
         self.csx = CSX
         grid = self.csx.GetGrid()
         # unique_primitives = CSX.GetAllPrimitives()
-        # print('unique_primitives:', unique_primitives)
         unique_primitives = list(self.primitives_mesh_setup.keys())
         # unique_primitives.extend(list(self.primitives_mesh_setup.keys()))
 
@@ -101,7 +100,7 @@ class Automesher:
         # Get unique vertical and horizontal edges
         unique_xedges, unique_yedges = geometryUtils.get_unique_edges(x_edges), geometryUtils.get_unique_edges(y_edges)
 
-        meshingUtils.adjust_mesh_parameters(self, unique_xedges, unique_yedges, diagonal_edges, mesh_data)
+        meshingUtils.adjust_mesh_parameters(self, unique_xedges, unique_yedges, z_coords, diagonal_edges, mesh_data)
         
         # Sort x and y coordinates
         sorted_x, sorted_y = np.sort(x_coords), np.sort(y_coords)        
@@ -116,63 +115,45 @@ class Automesher:
         geometryUtils.metal_edge(self, y_edges, x_coords, y_coords, mesh_data[1], 'y')
 
         # Add graded meshlines at material transitions
-        meshingUtils.add_graded_mesh_lines_at_material_transitions(self, x_edges,mesh_data[0], self.mesh_res, mesh_map[0],'x')
-        meshingUtils.add_graded_mesh_lines_at_material_transitions(self, y_edges,mesh_data[1], self.mesh_res, mesh_map[1],'y')
-        meshingUtils.add_graded_mesh_lines_at_material_transitions(self, z_coords,mesh_data[2], self.mesh_res, mesh_map[2],'z')
+        meshingUtils.add_graded_mesh_lines_at_material_transitions(self, x_edges, mesh_data[0], mesh_map[0], 'x')
+        meshingUtils.add_graded_mesh_lines_at_material_transitions(self, y_edges, mesh_data[1], mesh_map[1], 'y')
+        meshingUtils.add_graded_mesh_lines_at_material_transitions(self, z_coords, mesh_data[2], mesh_map[2], 'z')
 
         # Handle diagonal edges and add mesh lines for x and y directions
-        meshingUtils.handle_otheredges(self, diagonal_edges, unique_xedges, unique_yedges, self.mesh_res, self.max_res, mesh_data[0], 'x')
-        meshingUtils.handle_otheredges(self, diagonal_edges, unique_xedges, unique_yedges, self.mesh_res, self.max_res, mesh_data[1], 'y')
+        meshingUtils.handle_diagonal_edges(self, diagonal_edges, x_edges, y_edges, mesh_data[0], 'x')
+        meshingUtils.handle_diagonal_edges(self, diagonal_edges, x_edges, y_edges, mesh_data[1], 'y')
 
         # Refine mesh in small gaps for x and y edges
-        meshingUtils.mesh_small_gaps(self, x_edges, self.mesh_res, self.max_res, self.num_lines, mesh_data, 'x')
-        meshingUtils.mesh_small_gaps(self, y_edges, self.mesh_res, self.max_res, self.num_lines, mesh_data, 'y')
-        meshingUtils.mesh_small_gaps(self, z_coords, self.mesh_res, self.max_res, self.num_lines, mesh_data, 'z')
+        meshingUtils.mesh_small_gaps(self, x_edges, mesh_data, 'x')
+        meshingUtils.mesh_small_gaps(self, y_edges, mesh_data, 'y')
+        meshingUtils.mesh_small_gaps(self, z_coords, mesh_data, 'z')
         
         # Recalculate unique edges after refinement 
         unique_xedges, unique_yedges = geometryUtils.get_unique_edges(x_edges), geometryUtils.get_unique_edges(y_edges)
 
         # Add missing mesh lines between points and edges for x and y directions
-        meshingUtils.add_missing_mesh_lines(self, unique_xedges, sorted_x, diagonal_edges, self.mesh_res, mesh_data[0], 'x')
-        meshingUtils.add_missing_mesh_lines(self, unique_yedges, sorted_y, diagonal_edges, self.mesh_res, mesh_data[1], 'y')
+        meshingUtils.add_missing_mesh_lines(self, unique_xedges, sorted_x, diagonal_edges, mesh_data[0], 'x')
+        meshingUtils.add_missing_mesh_lines(self, unique_yedges, sorted_y, diagonal_edges, mesh_data[1], 'y')
         
         # Sort edges by their starting coordinates
         x_edges.sort(key=lambda edge: edge[0])
         y_edges.sort(key=lambda edge: edge[0])   
 
-        # Add edges to the mesh mesh_data for x and y directions
-        meshingUtils.add_edges_to_mesh_mesh_data(self, mesh_data[0], x_edges, self.mesh_res, self.min_cellsize, 'x')
-        meshingUtils.add_edges_to_mesh_mesh_data(self, mesh_data[1], y_edges, self.mesh_res, self.min_cellsize, 'y')
+        meshingUtils.add_edges_to_mesh_mesh_data(self, mesh_data[0], x_edges, 'x')
+        meshingUtils.add_edges_to_mesh_mesh_data(self, mesh_data[1], y_edges, 'y')
+        meshingUtils.add_edges_to_mesh_mesh_data(self, mesh_data[2], z_coords, 'z')
 
         # Handle circular segments in the polygon
-        self.found_circles = geometryUtils.detect_all_circles_in_polygon(self, polygon)
+        geometryUtils.detect_all_circles_in_polygon(self, polygon)
         meshingUtils.handle_circular_segments(self, polygon, mesh_data)
 
         # Add Ports to the mesh_data
-        mesh_data[0] = meshingUtils.add_ports_to_mesh_data(self, mesh_data[0], x_edges, 'x')
-        mesh_data[1] = meshingUtils.add_ports_to_mesh_data(self, mesh_data[1], y_edges, 'y')
-        mesh_data[2] = meshingUtils.add_ports_to_mesh_data(self, mesh_data[2], z_coords, 'z')
+        meshingUtils.add_ports_to_mesh_data(self, mesh_data[0], x_edges, 'x')
+        meshingUtils.add_ports_to_mesh_data(self, mesh_data[1], y_edges, 'y')
+        meshingUtils.add_ports_to_mesh_data(self, mesh_data[2], z_coords, 'z')
 
         # Smooth and process the mesh lines
         meshProcessing.smooth_and_process_mesh_lines(self, mesh_data, polygon, grid, x_edges, y_edges, z_coords, unique_xedges, unique_yedges, z_coords, mesh_map) 
-
-        # Check if all edges are in the mesh_data
-        meshingUtils.add_edges_to_mesh_mesh_data(self, mesh_data[0], x_edges, self.mesh_res, self.min_cellsize, 'x')
-        meshingUtils.add_edges_to_mesh_mesh_data(self, mesh_data[1], y_edges, self.mesh_res, self.min_cellsize, 'y')
-        meshingUtils.add_edges_to_mesh_mesh_data(self, mesh_data[2], z_coords, self.mesh_res, self.min_cellsize, 'z')
-
-        print()
-        arcs = geometryUtils.detect_all_arcs_in_polygon(self, polygon)
-
-        if arcs:
-            print(f"{len(arcs)} arc(s) detected:")
-            for i, (x_arc, y_arc) in enumerate(arcs):
-                print(f"  Arc {i+1}: {len(x_arc)} points: {arcs[i]}")
-                # delete mesh lines that are inside the arc
-                # mesh_data[0] = [line for line in mesh_data[0] if not (min(x_arc) <= line <= max(x_arc))]
-                # mesh_data[1] = [line for line in mesh_data[1] if not (min(y_arc) <= line <= max(y_arc))]
-        else:
-            print("No arcs found in polygon.")
 
         # If no z-direction mesh_datas exist, set it to None
         if mesh_data[2] == []:

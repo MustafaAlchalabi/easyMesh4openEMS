@@ -1,9 +1,6 @@
 from CSXCAD import CSPrimitives, CSProperties
-from openEMS import ports
 import openEMS
 import numpy as np
-from CSXCAD.SmoothMeshLines import SmoothMeshLines
-
 
 def process_polygon(automesher, polygon, x, y, z, x_edges, y_edges, diagonal_edges, mesh_data):
     # Check if the input is a list of primitives
@@ -11,7 +8,7 @@ def process_polygon(automesher, polygon, x, y, z, x_edges, y_edges, diagonal_edg
         # Process each primitive
         for prim in polygon:
             xedges, yedges = [], []
-            process_primitive(prim, x, y, xedges, yedges, diagonal_edges)
+            process_primitive(automesher, prim, x, y, xedges, yedges, diagonal_edges)
             xedges.sort(key=lambda edge: edge[0])
             yedges.sort(key=lambda edge: edge[0])
             # Ensure no duplicate edges are added
@@ -79,25 +76,35 @@ def transfer_port_to_polygon(start, stop):
     port_coords_z = [start[2], stop[2]]
     return port_coords_x, port_coords_y, port_coords_z
 
-def process_primitive(prim, x, y, x_edges, y_edges, diagonal_edges):
+def process_primitive(automesher, prim, x, y, x_edges, y_edges, diagonal_edges):
     if not hasattr(prim, 'GetType'):
         port_coords_x, port_coords_y, port_coords_z = transfer_port_to_polygon(prim.start, prim.stop)
         x.extend(port_coords_x)
         y.extend(port_coords_y)
         collect_edges(port_coords_x, port_coords_y, prim, x_edges, y_edges, diagonal_edges)
-    elif prim.GetType() == CSPrimitives.BOX:
+    elif prim.GetType() == CSPrimitives.PrimitiveType.BOX:
         box_coords_x, box_coords_y, box_coords_z = tranfer_box_to_polygon(prim)
         x.extend(box_coords_x)
         y.extend(box_coords_y)
         collect_edges(box_coords_x, box_coords_y, prim, x_edges, y_edges, diagonal_edges)
     else:
-        xx, yy = prim.GetCoords()[0], prim.GetCoords()[1]
-        x.extend(xx)
-        y.extend(yy)
-        if xx[-1] != xx[0] or yy[-1] != yy[0]:
-            xx = np.append(xx, xx[0])
-            yy = np.append(yy, yy[0])
-        collect_edges(xx, yy, prim, x_edges, y_edges, diagonal_edges)
+        if not prim.GetType() == CSPrimitives.PrimitiveType.CYLINDER:
+            xx, yy = prim.GetCoords()[0], prim.GetCoords()[1]   
+            x.extend(xx)
+            y.extend(yy)
+            if xx[-1] != xx[0] or yy[-1] != yy[0]:
+                xx = np.append(xx, xx[0])
+                yy = np.append(yy, yy[0])
+            collect_edges(xx, yy, prim, x_edges, y_edges, diagonal_edges)
+        if prim.GetType() == CSPrimitives.PrimitiveType.CYLINDER:
+            start = prim.GetStart()
+            stop = prim.GetStop()
+            radius = prim.GetRadius()
+            x_edges.append([start[0]-radius, start[1] - radius, start[1] + radius, prim, False])
+            x_edges.append([start[0]+radius, start[1] - radius, start[1] + radius, prim, False])
+            y_edges.append([start[1]-radius, start[0] - radius, start[0] + radius, prim, False])
+            y_edges.append([start[1]+radius, start[0] - radius, start[0] + radius, prim, False])
+            automesher.found_circles.append([[start[0]-radius,start[0]+radius],[start[1]-radius, start[1]+radius]])
 
 def collect_edges(x_coords, y_coords, prim, x_edges, y_edges, diagonal_edges):
     for i in range(len(x_coords) - 1):
@@ -109,10 +116,10 @@ def collect_edges(x_coords, y_coords, prim, x_edges, y_edges, diagonal_edges):
             y_edges.append([y_coords[i], x_coords[i], x_coords[i + 1], prim, False])
 
 def collect_z_coordinates(polygon):
-    z = [(prim.GetElevation(), prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() != CSPrimitives.BOX]
-    z.extend((prim.GetElevation() + prim.GetLength(), prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.LINPOLY)
-    box_coords_z = [(tranfer_box_to_polygon(prim)[2][0], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.BOX]
-    box_coords_z.extend((tranfer_box_to_polygon(prim)[2][1], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.BOX)
+    z = [(prim.GetElevation(), prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() != CSPrimitives.PrimitiveType.BOX and prim.GetType() != CSPrimitives.PrimitiveType.CYLINDER]
+    z.extend((prim.GetElevation() + prim.GetLength(), prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.LINPOLY)
+    box_coords_z = [(tranfer_box_to_polygon(prim)[2][0], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.BOX]
+    box_coords_z.extend((tranfer_box_to_polygon(prim)[2][1], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.BOX)
     z = list(set(z))
     z.sort(key=lambda x: x[0])
     z.extend(box_coords_z)
@@ -133,11 +140,11 @@ def process_single_polygon(polygon, x, y, x_edges, y_edges, diagonal_edges):
     y = np.append(y, yy)
     for i in range(len(xx) - 1):
         if xx[i] != xx[i + 1] and yy[i] != yy[i + 1]:
-            diagonal_edges.append([xx[i], xx[i + 1], yy[i], yy[i + 1], polygon])
+            diagonal_edges.append([xx[i], xx[i + 1], yy[i], yy[i + 1], polygon, False])
         if xx[i] == xx[i + 1]:
-            x_edges.append([xx[i], yy[i], yy[i + 1], polygon])
+            x_edges.append([xx[i], yy[i], yy[i + 1], polygon, False])
         if yy[i] == yy[i + 1]:
-            y_edges.append([yy[i], xx[i], xx[i + 1], polygon])       
+            y_edges.append([yy[i], xx[i], xx[i + 1], polygon, False])       
 
 def distance_between_segments(p1, p2, q1, q2):
     p = np.linspace(p1, p2, 10)
@@ -160,6 +167,8 @@ def detect_all_circles_in_polygon(automesher, polygon, min_points=20, tolerance=
         return []
     if isinstance(polygon, list):
         coords = [prim.GetCoords() for prim in polygon if hasattr(prim, 'GetCoords')]
+        if not coords:
+            return []
         x_coords = np.concatenate([coord[0] for coord in coords])
         y_coords = np.concatenate([coord[1] for coord in coords])
     else:                
@@ -192,8 +201,8 @@ def detect_all_circles_in_polygon(automesher, polygon, min_points=20, tolerance=
                 found_segments.append((sub_x, sub_y))
                 used_indices.update(indices)
                 break  # Nicht überlappend: nächster Startpunkt
-            
-    return found_segments
+    if found_segments:
+        automesher.found_circles.extend(found_segments)
 
 def fit_circle_least_squares(x, y):
     """
@@ -359,7 +368,7 @@ def metal_edge(automesher, edges, x_coords, y_coords, mesh_data, direction):
                 edges_with_same_x = [e for e in edges if e[0] == edge[0] and (hasattr(e[3], 'priority') and isinstance(e[3], openEMS.ports.MSLPort)) and not e[3] == edge[3]]
                 next_edges_with_same_x = [e for e in edges if e[0] == next_edge[0] and (hasattr(e[3], 'priority') and isinstance(e[3], openEMS.ports.MSLPort)) and not e[3] == next_edge[3]]
                 x, y, x_edges, y_edges, diagonal_edges = [], [], [], [], []
-                process_primitive(edge[3], x, y, x_edges, y_edges, diagonal_edges)
+                process_primitive(automesher, edge[3], x, y, x_edges, y_edges, diagonal_edges)
                 coords = [x, y]
                 if abs(np.diff([edge[0], next_edge[0]])) <= automesher.mesh_res and abs(np.diff([edge[0], next_edge[0]])) >= automesher.max_res and abs(np.diff([edge[0], next_edge[0]])) >= 1.5:
                         y1, y2 = edge[1], edge[2]
@@ -533,10 +542,13 @@ def metal_edge(automesher, edges, x_coords, y_coords, mesh_data, direction):
         #                     mesh_data.append(edges[i][0]+mer[0])
         #                     mesh_data.append(edges[i][0]+mer[1])
     elif automesher.global_mesh_setup.get('smooth_metal_edge', False) == 'extra_lines':
-        for i in range(len(edges)-1):  # Iterate over a copy of the list
-            edge = edges[i]
+        for edge in edges:  # Iterate over a copy of the list
             if hasattr(edge[3], 'GetProperty') and isinstance(edge[3].GetProperty(), CSProperties.CSPropMetal) or \
                 (hasattr(edge[3],'priority') and isinstance(edge[3],openEMS.ports.MSLPort)):
-            
-                mesh_data.append(edges[i][0] - automesher.min_cellsize/2)
-                mesh_data.append(edges[i][0] + automesher.min_cellsize/2)
+                if edge[0] == min(edges, key=lambda e: e[0])[0]:
+                    continue  
+                if edge[0] == max(edges, key=lambda e: e[0])[0]:
+                    continue 
+                mesh_data.append(edge[0] - automesher.min_cellsize/2)
+                mesh_data.append(edge[0])
+                mesh_data.append(edge[0] + automesher.min_cellsize/2)
