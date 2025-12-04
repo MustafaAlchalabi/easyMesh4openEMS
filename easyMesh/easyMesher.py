@@ -144,7 +144,7 @@ class Automesher:
         meshingUtils.add_edges_to_mesh_mesh_data(self, mesh_data[2], z_coords, 'z')
 
         # Handle circular segments in the polygon
-        self.found_circles = geometryUtils.detect_all_circles_in_polygon(self, polygon)
+        geometryUtils.detect_all_circles_in_polygon(self, polygon)
         meshingUtils.handle_circular_segments(self, polygon, mesh_data)
 
         # Add Ports to the mesh_data

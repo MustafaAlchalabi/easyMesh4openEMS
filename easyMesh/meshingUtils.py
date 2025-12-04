@@ -180,7 +180,7 @@ def get_mesh_map(automesher):
                 if isinstance(primitives, list):
                     # Process each primitive
                     for prim in primitives:
-                        geometryUtils.process_primitive(prim, tmp_x, tmp_y, tmp_x_edges, tmp_y_edges, tmp_diagonal_edges)
+                        geometryUtils.process_primitive(automesher, prim, tmp_x, tmp_y, tmp_x_edges, tmp_y_edges, tmp_diagonal_edges)
 
                     # Collect z-coordinates from the polygon
                     tmp_z.extend(geometryUtils.collect_z_coordinates(primitives))
@@ -673,11 +673,11 @@ def handle_circular_segments(automesher, x_edges, mesh_data):
             # Remove x lines inside the circle
             mesh_data[0] = [line for line in mesh_data[0] if not (min(x_seg) < line < max(x_seg))]
             # Add x lines inside the circle
-            mesh_data[0].extend(SmoothMeshLines([min(x_seg), max(x_seg)], automesher.max_res))
+            mesh_data[0].extend(SmoothMeshLines([min(x_seg), max(x_seg)], automesher.max_res*2))
             # Remove y lines inside the circle
             mesh_data[1] = [line for line in mesh_data[1] if not (min(y_seg) < line < max(y_seg))]
             # Add y lines inside the circle
-            mesh_data[1].extend(SmoothMeshLines([min(y_seg), max(y_seg)], automesher.max_res))
+            mesh_data[1].extend(SmoothMeshLines([min(y_seg), max(y_seg)], automesher.max_res*2))
 
     # arcs = geometryUtils.detect_all_arcs_in_polygon(self, polygon)
 

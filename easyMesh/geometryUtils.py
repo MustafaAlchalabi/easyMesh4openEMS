@@ -8,7 +8,7 @@ def process_polygon(automesher, polygon, x, y, z, x_edges, y_edges, diagonal_edg
         # Process each primitive
         for prim in polygon:
             xedges, yedges = [], []
-            process_primitive(prim, x, y, xedges, yedges, diagonal_edges)
+            process_primitive(automesher, prim, x, y, xedges, yedges, diagonal_edges)
             xedges.sort(key=lambda edge: edge[0])
             yedges.sort(key=lambda edge: edge[0])
             # Ensure no duplicate edges are added
@@ -76,7 +76,7 @@ def transfer_port_to_polygon(start, stop):
     port_coords_z = [start[2], stop[2]]
     return port_coords_x, port_coords_y, port_coords_z
 
-def process_primitive(prim, x, y, x_edges, y_edges, diagonal_edges):
+def process_primitive(automesher, prim, x, y, x_edges, y_edges, diagonal_edges):
     if not hasattr(prim, 'GetType'):
         port_coords_x, port_coords_y, port_coords_z = transfer_port_to_polygon(prim.start, prim.stop)
         x.extend(port_coords_x)
@@ -100,10 +100,11 @@ def process_primitive(prim, x, y, x_edges, y_edges, diagonal_edges):
             start = prim.GetStart()
             stop = prim.GetStop()
             radius = prim.GetRadius()
-            x_edges.append([start[0], start[1] - radius, start[1] + radius, prim, False])
-            x_edges.append([stop[0], start[1] - radius, start[1] + radius, prim, False])
-            y_edges.append([start[1], start[0] - radius, start[0] + radius, prim, False])
-            y_edges.append([stop[1], start[0] - radius, start[0] + radius, prim, False])
+            x_edges.append([start[0]-radius, start[1] - radius, start[1] + radius, prim, False])
+            x_edges.append([start[0]+radius, start[1] - radius, start[1] + radius, prim, False])
+            y_edges.append([start[1]-radius, start[0] - radius, start[0] + radius, prim, False])
+            y_edges.append([start[1]+radius, start[0] - radius, start[0] + radius, prim, False])
+            automesher.found_circles.append([[start[0]-radius,start[0]+radius],[start[1]-radius, start[1]+radius]])
 
 def collect_edges(x_coords, y_coords, prim, x_edges, y_edges, diagonal_edges):
     for i in range(len(x_coords) - 1):
@@ -166,6 +167,8 @@ def detect_all_circles_in_polygon(automesher, polygon, min_points=20, tolerance=
         return []
     if isinstance(polygon, list):
         coords = [prim.GetCoords() for prim in polygon if hasattr(prim, 'GetCoords')]
+        if not coords:
+            return []
         x_coords = np.concatenate([coord[0] for coord in coords])
         y_coords = np.concatenate([coord[1] for coord in coords])
     else:                
@@ -198,8 +201,8 @@ def detect_all_circles_in_polygon(automesher, polygon, min_points=20, tolerance=
                 found_segments.append((sub_x, sub_y))
                 used_indices.update(indices)
                 break  # Nicht überlappend: nächster Startpunkt
-            
-    return found_segments
+    if found_segments:
+        automesher.found_circles.extend(found_segments)
 
 def fit_circle_least_squares(x, y):
     """
@@ -365,7 +368,7 @@ def metal_edge(automesher, edges, x_coords, y_coords, mesh_data, direction):
                 edges_with_same_x = [e for e in edges if e[0] == edge[0] and (hasattr(e[3], 'priority') and isinstance(e[3], openEMS.ports.MSLPort)) and not e[3] == edge[3]]
                 next_edges_with_same_x = [e for e in edges if e[0] == next_edge[0] and (hasattr(e[3], 'priority') and isinstance(e[3], openEMS.ports.MSLPort)) and not e[3] == next_edge[3]]
                 x, y, x_edges, y_edges, diagonal_edges = [], [], [], [], []
-                process_primitive(edge[3], x, y, x_edges, y_edges, diagonal_edges)
+                process_primitive(automesher, edge[3], x, y, x_edges, y_edges, diagonal_edges)
                 coords = [x, y]
                 if abs(np.diff([edge[0], next_edge[0]])) <= automesher.mesh_res and abs(np.diff([edge[0], next_edge[0]])) >= automesher.max_res and abs(np.diff([edge[0], next_edge[0]])) >= 1.5:
                         y1, y2 = edge[1], edge[2]
