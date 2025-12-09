@@ -211,6 +211,9 @@ Take a look for the examples in the Tutorials folder
   - Slightly enlarge gaps in your geometry if physically acceptable.
 
 ---
+## Acknowledgments
+
+This project is funded by the Federal Ministry of Research, Technology and Space (BMFTR) under the DI-DEMICO project as part of the DE:Sign – Design Initiative for Microelectronics.
 
 ## Contributing
 
