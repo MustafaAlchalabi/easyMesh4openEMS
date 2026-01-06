@@ -250,22 +250,38 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
     y_edges.sort(key=lambda edge: edge[0])  
     # Check lines between x edges
     for i in range(len(x_edges) - 1):
-        if abs(x_edges[i][0] - x_edges[i + 1][0]) > automesher.mesh_res:
+        if abs(x_edges[i][0] - x_edges[i + 1][0]) > automesher.mesh_res_compare:
             lines_in_range = [line for line in mesh_data[0] if x_edges[i][0] < line < x_edges[i + 1][0]]
             lines_in_range = sorted(set(lines_in_range))  # Ensure unique lines 
             if not lines_in_range:
                 lines_to_add = np.linspace(x_edges[i][0], x_edges[i + 1][0], automesher.num_lines)
                 lines_to_add = list(lines_to_add)   
                 mesh_data[0].extend(lines_to_add)
+            if len(lines_in_range) < (automesher.num_lines-2) and lines_in_range:
+                lines_to_add = np.linspace(x_edges[i][0], x_edges[i + 1][0], automesher.num_lines)
+                res = np.diff(lines_to_add).mean()
+                lines_to_be_smoothed = []
+                lines_to_be_smoothed.extend(mesh_data[0])
+                smoothed_lines = SmoothMeshLines(lines_to_be_smoothed, res, 1.3).tolist()
+                lines_to_add = [line for line in smoothed_lines if x_edges[i][0] < line < x_edges[i + 1][0]]
+                mesh_data[0].extend(lines_to_add)
 
     # Check lines between y edges
     for i in range(len(y_edges) - 1):
-        if abs(y_edges[i][0] - y_edges[i + 1][0]) > automesher.mesh_res:
+        if abs(y_edges[i][0] - y_edges[i + 1][0]) > automesher.mesh_res_compare:
             lines_in_range = [line for line in mesh_data[1] if y_edges[i][0] < line < y_edges[i + 1][0]]
             lines_in_range = sorted(set(lines_in_range))  # Ensure unique lines
             if not lines_in_range:
                 lines_to_add = np.linspace(y_edges[i][0], y_edges[i + 1][0], automesher.num_lines)
                 lines_to_add = list(lines_to_add)   
+                mesh_data[1].extend(lines_to_add)
+            if len(lines_in_range) < automesher.num_lines-2 and lines_in_range:
+                lines_to_add = np.linspace(y_edges[i][0], y_edges[i + 1][0], automesher.num_lines)
+                res = np.diff(lines_to_add).mean()
+                lines_to_be_smoothed = []
+                lines_to_be_smoothed.extend(mesh_data[1])
+                smoothed_lines = SmoothMeshLines(lines_to_be_smoothed, res, 1.3).tolist()
+                lines_to_add = [line for line in smoothed_lines if y_edges[i][0] < line < y_edges[i + 1][0]]
                 mesh_data[1].extend(lines_to_add)
 
     # Check lines between z edges
@@ -294,10 +310,10 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
     mesh_data[1] = sorted(set(mesh_data[1]))
     mesh_data[2] = sorted(set(mesh_data[2]))
 
-    distance = automesher.global_mesh_setup.get('boundary_distance', [0, 0, 0, 0, 0, 0])
+    distance = automesher.global_mesh_setup.get('boundary_distance', ['auto', 'auto', 'auto', 'auto', 'auto', 'auto'])
     for i in range(len(distance)):
         if distance[i] == 'auto':
-            distance[i] = automesher.wave_length
+            distance[i] = automesher.wave_length/3
         elif distance[i] is None:
             distance[i] = 0
     if xmin in mesh_data[0]:

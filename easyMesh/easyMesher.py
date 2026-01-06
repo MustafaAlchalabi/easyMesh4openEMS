@@ -22,8 +22,11 @@ class Automesher:
         self.global_mesh_setup = {} 
         self.mesh_data = {}
         self.mesh_res = None
+        self.mesh_res_compare = None
         self.min_cellsize = None
+        self.min_cellsize_compare = None
         self.max_res = None
+        self.max_res_compare = None
         self.max_cellsize = None
         self.num_lines = None
         self.min_cellsize_changed = False
@@ -31,6 +34,7 @@ class Automesher:
         self.mesh_with_max_cell_size = [[], [], []]  # x, y, z
         self.mesh_with_different_mesh_res = []
         self.metal_edge_res = None
+        self.wave_length = None
 
     def GenMesh(self, CSX, global_mesh_setup, primitives_mesh_setup=None, properties_mesh_setup=None, **kw):
 
