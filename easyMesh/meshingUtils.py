@@ -72,6 +72,11 @@ def get_mesh_parameters(automesher):
         if automesher.mesh_res is None:
             automesher.mesh_res, automesher.num_lines = get_mesh_res()
 
+        epsilon = 1
+        automesher.mesh_res_compare = automesher.wave_length / (10 * epsilon**0.5)  #low
+        automesher.min_cellsize_compare = automesher.mesh_res_compare / 6   #medium
+        automesher.max_res_compare = automesher.min_cellsize_compare + 0.25 * automesher.min_cellsize_compare
+
         if automesher.global_mesh_setup.get('num_lines', None) is not None:
             automesher.num_lines = automesher.global_mesh_setup.get('num_lines')+2
 
@@ -96,18 +101,18 @@ def adjust_mesh_parameters(automesher, unique_xedges, unique_yedges, z_coords, d
             automesher.max_res_z = automesher.max_res
             # if automesher.global_mesh_setup.get('min_cellsize', None) is None:
             for i in range(len(unique_xedges) - 1):
-                condition1 = abs(unique_xedges[i + 1][0] - unique_xedges[i][0]) <= automesher.min_cellsize and abs(unique_xedges[i + 1][0] - unique_xedges[i][0]) >= 1.5
-                condition2 = abs(unique_xedges[i + 1][0] - unique_xedges[i][0]) > automesher.min_cellsize and abs(unique_xedges[i + 1][0] - unique_xedges[i][0]) < automesher.max_res
+                condition1 = abs(unique_xedges[i + 1][0] - unique_xedges[i][0]) <= automesher.min_cellsize_compare and abs(unique_xedges[i + 1][0] - unique_xedges[i][0]) >= 1.5
+                condition2 = abs(unique_xedges[i + 1][0] - unique_xedges[i][0]) > automesher.min_cellsize_compare and abs(unique_xedges[i + 1][0] - unique_xedges[i][0]) < automesher.max_res_compare
                 if condition1 or condition2:
                     distance_smaller_than_min_cellsize.append([abs(unique_xedges[i + 1][0] - unique_xedges[i][0]), unique_xedges[i][0], unique_xedges[i + 1][0]])
             for i in range(len(unique_yedges) - 1):
-                condition3 = abs(unique_yedges[i + 1][0] - unique_yedges[i][0]) <= automesher.min_cellsize and abs(unique_yedges[i + 1][0] - unique_yedges[i][0]) >= 1.5
-                condition4 = abs(unique_yedges[i + 1][0] - unique_yedges[i][0]) > automesher.min_cellsize and abs(unique_yedges[i + 1][0] - unique_yedges[i][0]) < automesher.max_res           
+                condition3 = abs(unique_yedges[i + 1][0] - unique_yedges[i][0]) <= automesher.min_cellsize_compare and abs(unique_yedges[i + 1][0] - unique_yedges[i][0]) >= 1.5
+                condition4 = abs(unique_yedges[i + 1][0] - unique_yedges[i][0]) > automesher.min_cellsize_compare and abs(unique_yedges[i + 1][0] - unique_yedges[i][0]) < automesher.max_res_compare           
                 if condition3 or condition4:
                     distance_smaller_than_min_cellsize.append([abs(unique_yedges[i + 1][0] - unique_yedges[i][0]), unique_yedges[i][0], unique_yedges[i + 1][0]])
             for i in range(len(z_coords) - 1):
-                condition5 = abs(z_coords[i + 1][0] - z_coords[i][0]) <= automesher.min_cellsize and abs(z_coords[i + 1][0] - z_coords[i][0]) >= 1.5
-                condition6 = abs(z_coords[i + 1][0] - z_coords[i][0]) > automesher.min_cellsize and abs(z_coords[i + 1][0] - z_coords[i][0]) < automesher.max_res
+                condition5 = abs(z_coords[i + 1][0] - z_coords[i][0]) <= automesher.min_cellsize_compare and abs(z_coords[i + 1][0] - z_coords[i][0]) >= 1.5
+                condition6 = abs(z_coords[i + 1][0] - z_coords[i][0]) > automesher.min_cellsize_compare and abs(z_coords[i + 1][0] - z_coords[i][0]) < automesher.max_res_compare
                 if condition5 or condition6:
                     # distance_smaller_than_min_cellsize.append([abs(z_coords[i + 1][0] - z_coords[i][0]), z_coords[i][0], z_coords[i + 1][0]])
                     distance_smaller_than_min_cellsize_z.append([abs(z_coords[i + 1][0] - z_coords[i][0]), z_coords[i][0], z_coords[i + 1][0]])
@@ -116,7 +121,7 @@ def adjust_mesh_parameters(automesher, unique_xedges, unique_yedges, z_coords, d
                 n = min(distance_smaller_than_min_cellsize_z)
                 lines = np.linspace(n[1], n[2], automesher.num_lines)
                 ds = abs(np.min(np.diff(lines)))
-                if ds < automesher.min_cellsize:
+                if ds < automesher.min_cellsize_compare:
                     automesher.min_cellsize_z = ds
                     automesher.min_cellsize_z_changed = True
                     automesher.mesh_res_z = round(ds * (automesher.num_lines - 1))
@@ -125,8 +130,10 @@ def adjust_mesh_parameters(automesher, unique_xedges, unique_yedges, z_coords, d
             if distance_smaller_than_min_cellsize:
                 n = min(distance_smaller_than_min_cellsize)
                 lines = np.linspace(n[1], n[2], automesher.num_lines)
+                lines_for_comparison = np.linspace(n[1], n[2], 4)
                 ds = abs(np.min(np.diff(lines)))
-                if ds < automesher.min_cellsize:
+                ds_compare = abs(np.min(np.diff(lines_for_comparison)))
+                if ds < automesher.min_cellsize_compare:
                     automesher.min_cellsize = ds
                     automesher.min_cellsize_changed = True
                     if ds < 1:
@@ -144,6 +151,14 @@ def adjust_mesh_parameters(automesher, unique_xedges, unique_yedges, z_coords, d
                         automesher.max_cellsize = automesher.max_cellsize / (epsilon ** 0.5)
                 # if automesher.max_cellsize == automesher.mesh_res:
                 #     automesher.max_cellsize = automesher.mesh_res * 2
+                if ds_compare < automesher.min_cellsize_compare:
+                    automesher.min_cellsize_compare = ds_compare
+                    automesher.max_res_compare = automesher.min_cellsize_compare + 0.25 * automesher.min_cellsize_compare
+                    if ds_compare < 1:
+                        automesher.mesh_res_compare = round(1 * (4 - 1))
+                    else:
+                        automesher.mesh_res_compare = round(ds_compare * (4 - 1))
+
             if automesher.global_mesh_setup.get('min_cellsize', None) is not None:
                 automesher.min_cellsize = automesher.global_mesh_setup.get('min_cellsize')
                 automesher.max_res = automesher.min_cellsize + 0.25 * automesher.min_cellsize
@@ -154,6 +169,7 @@ def adjust_mesh_parameters(automesher, unique_xedges, unique_yedges, z_coords, d
             if automesher.global_mesh_setup.get('min_cellsize_z', None) is not None:
                 automesher.min_cellsize_z = automesher.global_mesh_setup.get('min_cellsize_z')
                 automesher.max_res_z = automesher.min_cellsize_z + 0.25 * automesher.min_cellsize_z
+
             automesher.min_cellsize = automesher.global_mesh_setup.get('min_cellsize', automesher.min_cellsize)
             automesher.max_res = automesher.min_cellsize + 0.25 * automesher.min_cellsize
             automesher.min_cellsize_z = automesher.global_mesh_setup.get('min_cellsize_z', automesher.min_cellsize_z)
@@ -566,7 +582,7 @@ def mesh_small_gaps(automesher, unique_edges, mesh_data, direction):
         for i in range(len(unique_edges) - 1):
                 # print('Checking edges:', unique_edges[i], unique_edges[i + 1])
             # if not unique_edges[i + 1][4] and not unique_edges[i][4]:
-                if abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) <= automesher.mesh_res and abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) >= automesher.max_res and abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) >= 1.5:
+                if abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) <= automesher.mesh_res_compare and abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) >= automesher.max_res_compare and abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) >= 1.5:
                     other_edgs_with_same_coordinate = []
                     other_edgs_with_same_coordinate.append(unique_edges[i+1])
                     for edge in unique_edges:
