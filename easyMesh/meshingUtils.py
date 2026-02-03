@@ -431,16 +431,36 @@ def add_ports_to_mesh_data(automesher, mesh_data, edges, direction):
         for edge in x_edges:
             # if not any(e[0] == edge[0] and e[4] is True for e in edges):
             edges.append(edge)
-            mesh_data.append(edge[0])
+            # mesh_data.append(edge[0])
     if direction == 'y':
         for edge in y_edges:
             # if not any(e[0] == edge[0] and e[4] is True for e in edges):
             edges.append(edge)
-            mesh_data.append(edge[0])
+            # mesh_data.append(edge[0])
     if direction == 'z': 
         for edge in zedges:
             mesh_data.append(edge[0])
             edges.append(edge)
+
+    if direction in ['x', 'y'] and automesher.global_mesh_setup.get('handle_closely_placed_edges'):
+        edges.sort(key=lambda edge: edge[0])
+        edges_to_remove = []
+        for i in range(len(edges)-1):
+            if abs(edges[i+1][0]-edges[i][0]) < automesher.min_cellsize/2 and abs(edges[i+1][0]-edges[i][0]) > 0:
+                edges_to_remove.append(edges[i])
+                edges_to_remove.extend([edge for edge in edges if edge[0] == edges[i][0]])
+
+                edges_to_remove.append(edges[i+1])
+                edges_to_remove.extend([edge for edge in edges if edge[0] == edges[i+1][0]])
+                edges.append(((edges[i + 1][0]+edges[i][0])/2, edges[i][1], edges[i][2], edges[i][3], True))
+        for edge in edges_to_remove:
+            if edge in edges:
+                edges.remove(edge)
+            for mesh_line in mesh_data:
+                if mesh_line == edge[0]:
+                    mesh_data.remove(edge[0])
+        mesh_data.extend(edge[0] for edge in edges)
+        
     # for edge in edges:
     #     if hasattr(edge[3], 'priority') and not any(e[0] == edge[0] and e[4] is True for e in edges):
     #         mesh_data.append(edge[0])
@@ -510,7 +530,7 @@ def remove_close_edges(automesher, edges, direction, return_edges=False):
                     #     edges_to_remove.append(edges[i + 1])
     else:
         for i in range(len(edges) - 1):
-            if abs(edges[i+1][0] - edges[i][0]) < automesher.min_cellsize/2 and abs(edges[i+1][0] - edges[i][0]) > 0:
+            if abs(edges[i+1][0] - edges[i][0]) < automesher.min_cellsize and abs(edges[i+1][0] - edges[i][0]) > 0:
                 if hasattr(edges[i][3], 'priority') and hasattr(edges[i + 1][3], 'priority'):
                     continue
                 elif hasattr(edges[i][3], 'GetPriority') and (hasattr(edges[i + 1][3], 'GetPriority')):
