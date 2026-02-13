@@ -549,6 +549,6 @@ def metal_edge(automesher, edges, x_coords, y_coords, mesh_data, direction):
                     continue  
                 if edge[0] == max(edges, key=lambda e: e[0])[0]:
                     continue 
-                mesh_data.append(edge[0] - automesher.min_cellsize/2)
+                mesh_data.append(edge[0] - automesher.min_cellsize)
                 mesh_data.append(edge[0])
-                mesh_data.append(edge[0] + automesher.min_cellsize/2)
+                mesh_data.append(edge[0] + automesher.min_cellsize)

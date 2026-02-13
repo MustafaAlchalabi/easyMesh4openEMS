@@ -446,7 +446,7 @@ def add_ports_to_mesh_data(automesher, mesh_data, edges, direction):
         edges.sort(key=lambda edge: edge[0])
         edges_to_remove = []
         for i in range(len(edges)-1):
-            if abs(edges[i+1][0]-edges[i][0]) < automesher.min_cellsize/2 and abs(edges[i+1][0]-edges[i][0]) > 0:
+            if abs(edges[i+1][0]-edges[i][0]) < automesher.min_cellsize and abs(edges[i+1][0]-edges[i][0]) > 0:
                 edges_to_remove.append(edges[i])
                 edges_to_remove.extend([edge for edge in edges if edge[0] == edges[i][0]])
 
