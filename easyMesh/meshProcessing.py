@@ -451,51 +451,49 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
 
 def process_mesh_data(mesh_data, min_cellsize, unique_edges):
     mesh_data = sorted(mesh_data)
-    while True:  
+    edge_positions = [e[0] for e in unique_edges]
+
+    def is_edge(x):
+        return any(x==ex for ex in edge_positions)
+
+    threshold = min_cellsize / 1.0
+
+    while True:
         new_mesh_data = []
-        skip_next = False
-        changed = False 
+        changed = False
+        i = 0
 
-        for i in range(len(mesh_data) - 1):
-            if skip_next:
-                skip_next = False
-                continue
-            # if any(mesh_data[i] == edge[0] for edge in unique_edges) and any(mesh_data[i+1] == edge[0] for edge in unique_edges):
-            #     matching_edge_i = next(edge for edge in unique_edges if mesh_data[i] == edge[0])
-            #     matching_edge_i_plus_1 = next(edge for edge in unique_edges if mesh_data[i+1] == edge[0])
-            #     if abs(mesh_data[i+1] - mesh_data[i]) > 0:
-            #         if hasattr(matching_edge_i[3], 'priority') and hasattr(matching_edge_i_plus_1[3], 'priority'):
-            #             print('matching edges with same value found:', mesh_data[i+1]- mesh_data[i], matching_edge_i_plus_1, matching_edge_i)
-            #             new_mesh_data.append(mesh_data[i])
-            #             new_mesh_data.append(mesh_data[i+1])
-            #         # if hasattr(matching_edge_i_plus_1, 'priority'):
-            #         #     new_mesh_data.append(mesh_data[i+1])
-            #         print('new mesh data:', new_mesh_data)
-            #         continue
-            if abs(mesh_data[i+1] - mesh_data[i]) < min_cellsize / 2:
-                changed = True  
-                if any(mesh_data[i] == edge[0] for edge in unique_edges) and not any(mesh_data[i+1] == edge[0] for edge in unique_edges):
-                    new_mesh_data.append(mesh_data[i])
-                    skip_next = True
-                elif any(mesh_data[i+1] == edge[0] for edge in unique_edges) and not any(mesh_data[i] == edge[0] for edge in unique_edges):
-                    new_mesh_data.append(mesh_data[i+1])
-                    skip_next = True
-                elif any(mesh_data[i] == edge[0] for edge in unique_edges) and any(mesh_data[i+1] == edge[0] for edge in unique_edges):
-                    # new_mesh_data.append((mesh_data[i] + mesh_data[i+1]) / 2)
-                    skip_next = False
-                    continue
+        while i < len(mesh_data) - 1:
+            a = mesh_data[i]
+            b = mesh_data[i + 1]
+
+            if abs(b - a) < threshold:
+                a_edge = is_edge(a)
+                b_edge = is_edge(b)
+
+                if a_edge and b_edge:
+                    new_mesh_data.extend([a, b])
+                elif a_edge and not b_edge:
+                    new_mesh_data.append(a)
+                    changed = True
+                elif b_edge and not a_edge:
+                    new_mesh_data.append(b)
+                    changed = True
                 else:
-                    new_mesh_data.append((mesh_data[i] + mesh_data[i+1]) / 2)
-                    skip_next = True
-            else:
-                new_mesh_data.append(mesh_data[i])
+                    new_mesh_data.append((a + b) / 2.0)
+                    changed = True
 
-        if not skip_next and mesh_data:
+                i += 2
+            else:
+                new_mesh_data.append(a)
+                i += 1
+
+        if i == len(mesh_data) - 1:
             new_mesh_data.append(mesh_data[-1])
 
         if not changed:
-            break  
-        mesh_data = new_mesh_data  
-    # print(f"Mesh data changed: {new_mesh_data}")
+            break
+
+        mesh_data = new_mesh_data
 
     return mesh_data
