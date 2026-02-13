@@ -456,7 +456,7 @@ def process_mesh_data(mesh_data, min_cellsize, unique_edges):
     def is_edge(x):
         return any(x==ex for ex in edge_positions)
 
-    threshold = min_cellsize / 2.0
+    threshold = min_cellsize / 1.0
 
     while True:
         new_mesh_data = []
