@@ -492,8 +492,7 @@ def process_mesh_data(mesh_data, min_cellsize, unique_edges):
             new_mesh_data.append(mesh_data[-1])
 
         if not changed:
-            break
-
+            break        
         mesh_data = new_mesh_data
 
     return mesh_data

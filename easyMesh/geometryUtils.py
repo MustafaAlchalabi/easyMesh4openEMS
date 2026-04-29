@@ -34,11 +34,11 @@ def process_polygon(automesher, polygon, x, y, z, x_edges, y_edges, diagonal_edg
 
     else:
         # If the polygon is a single primitive, get its x and y coordinates
-        prim_x_coords, prim_y_coords = polygon.GetCoords()[0], polygon.GetCoords()[1]
-        x.extend(prim_x_coords)
-        y.extend(prim_y_coords)
+        # prim_x_coords, prim_y_coords = polygon.GetCoords()[0], polygon.GetCoords()[1]
+        # x.extend(prim_x_coords)
+        # y.extend(prim_y_coords)
         # Process the single polygon to extract edges and coordinates
-        process_single_polygon(polygon, x, y, x_edges, y_edges, diagonal_edges)
+        process_single_polygon(automesher, polygon, x, y, x_edges, y_edges, diagonal_edges)
 
         # Collect z-coordinates from the single polygon
         z.extend(collect_z_coordinates([polygon]))
@@ -88,7 +88,87 @@ def process_primitive(automesher, prim, x, y, x_edges, y_edges, diagonal_edges):
         y.extend(box_coords_y)
         collect_edges(box_coords_x, box_coords_y, prim, x_edges, y_edges, diagonal_edges)
     else:
-        if not prim.GetType() == CSPrimitives.PrimitiveType.CYLINDER:
+        if not prim.GetType() == CSPrimitives.PrimitiveType.CYLINDER and not prim.GetType() == CSPrimitives.PrimitiveType.CYLINDRICALSHELL:
+            xx, yy = prim.GetCoords()[0], prim.GetCoords()[1]   
+            x.extend(xx)
+            y.extend(yy)
+            if xx[-1] != xx[0] or yy[-1] != yy[0]:
+                xx = np.append(xx, xx[0])
+                yy = np.append(yy, yy[0])
+            collect_edges(xx, yy, prim, x_edges, y_edges, diagonal_edges)
+        if prim.GetType() == CSPrimitives.PrimitiveType.CYLINDER:
+            start = prim.GetStart()
+            stop = prim.GetStop()
+            radius = prim.GetRadius()
+            x.extend([start[0]-radius, start[0]+radius])
+            y.extend([start[1]-radius, start[1]+radius])
+            x_edges.append([start[0]-radius, start[1] - radius, start[1] + radius, prim, False])
+            x_edges.append([start[0]+radius, start[1] - radius, start[1] + radius, prim, False])
+            y_edges.append([start[1]-radius, start[0] - radius, start[0] + radius, prim, False])
+            y_edges.append([start[1]+radius, start[0] - radius, start[0] + radius, prim, False])
+            automesher.found_circles.append([[start[0]-radius,start[0]+radius],[start[1]-radius, start[1]+radius]])
+        if prim.GetType() == CSPrimitives.PrimitiveType.CYLINDRICALSHELL:
+            start = prim.GetStart()
+            stop = prim.GetStop()
+            radius = prim.GetRadius()
+            thickness = prim.GetShellWidth()
+            x.extend([start[0]-radius-thickness, start[0]+radius+thickness])
+            y.extend([start[1]-radius-thickness, start[1]+radius+thickness])
+            x_edges.append([start[0]-radius, start[1] - radius, start[1] + radius, prim, False])
+            x_edges.append([start[0]+radius, start[1] - radius, start[1] + radius, prim, False])
+            x_edges.append([start[0]-radius-thickness, start[1] - radius - thickness, start[1] + radius + thickness, prim, False])
+            x_edges.append([start[0]+radius+thickness, start[1] - radius - thickness, start[1] + radius + thickness, prim, False])
+            y_edges.append([start[1]-radius, start[0] - radius, start[0] + radius, prim, False])
+            y_edges.append([start[1]+radius, start[0] - radius, start[0] + radius, prim, False])
+            y_edges.append([start[1]-radius-thickness, start[0] - radius - thickness, start[0] + radius + thickness, prim, False])
+            y_edges.append([start[1]+radius+thickness, start[0] - radius - thickness, start[0] + radius + thickness, prim, False])
+            automesher.found_circles.append([[start[0]-radius,start[0]+radius],[start[1]-radius,start[1]+radius]])
+            automesher.found_circles.append([[start[0]-radius-thickness,start[0]+radius+thickness],[start[1]-radius-thickness,start[1]+radius+thickness]])
+
+def collect_edges(x_coords, y_coords, prim, x_edges, y_edges, diagonal_edges):
+    for i in range(len(x_coords) - 1):
+        if x_coords[i] != x_coords[i + 1] and y_coords[i] != y_coords[i + 1]:
+            diagonal_edges.append([x_coords[i], x_coords[i + 1], y_coords[i], y_coords[i + 1], prim])
+        if x_coords[i] == x_coords[i + 1]:
+            x_edges.append([x_coords[i], y_coords[i], y_coords[i + 1], prim, False])
+        if y_coords[i] == y_coords[i + 1]:
+            y_edges.append([y_coords[i], x_coords[i], x_coords[i + 1], prim, False])
+
+def collect_z_coordinates(polygon):
+    z = [(prim.GetElevation(), prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() != CSPrimitives.PrimitiveType.BOX and prim.GetType() != CSPrimitives.PrimitiveType.CYLINDER and prim.GetType() != CSPrimitives.PrimitiveType.CYLINDRICALSHELL]
+    z.extend((prim.GetElevation() + prim.GetLength(), prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.LINPOLY)
+    z.extend((prim.GetStart()[2], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.CYLINDER)
+    z.extend((prim.GetStart()[2], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.CYLINDRICALSHELL)
+    z.extend((prim.GetStop()[2], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.CYLINDER)
+    z.extend((prim.GetStop()[2], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.CYLINDRICALSHELL)
+    box_coords_z = [(tranfer_box_to_polygon(prim)[2][0], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.BOX]
+    box_coords_z.extend((tranfer_box_to_polygon(prim)[2][1], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.BOX)
+    z = list(set(z))
+    z.sort(key=lambda x: x[0])
+    z.extend(box_coords_z)
+    return z
+
+def process_z_coordinates(automesher, z, mesh_data):
+    for z_val, prim in z:
+        dirs = automesher.primitives_mesh_setup.get(prim, {}).get('dirs') or \
+        automesher.properties_mesh_setup.get(prim.GetProperty(), {}).get('dirs') or \
+        automesher.global_mesh_setup.get('dirs')
+        if dirs is not None and 'z' in dirs:
+            mesh_data[2].append(z_val)            
+
+def process_single_polygon(automesher, prim, x, y, x_edges, y_edges, diagonal_edges):
+    if not hasattr(prim, 'GetType'):
+        port_coords_x, port_coords_y, port_coords_z = transfer_port_to_polygon(prim.start, prim.stop)
+        x.extend(port_coords_x)
+        y.extend(port_coords_y)
+        collect_edges(port_coords_x, port_coords_y, prim, x_edges, y_edges, diagonal_edges)
+    elif prim.GetType() == CSPrimitives.PrimitiveType.BOX:
+        box_coords_x, box_coords_y, box_coords_z = tranfer_box_to_polygon(prim)
+        x.extend(box_coords_x)
+        y.extend(box_coords_y)
+        collect_edges(box_coords_x, box_coords_y, prim, x_edges, y_edges, diagonal_edges)
+    else:
+        if not prim.GetType() == CSPrimitives.PrimitiveType.CYLINDER and not prim.GetType() == CSPrimitives.PrimitiveType.CYLINDRICALSHELL:
             xx, yy = prim.GetCoords()[0], prim.GetCoords()[1]   
             x.extend(xx)
             y.extend(yy)
@@ -105,46 +185,32 @@ def process_primitive(automesher, prim, x, y, x_edges, y_edges, diagonal_edges):
             y_edges.append([start[1]-radius, start[0] - radius, start[0] + radius, prim, False])
             y_edges.append([start[1]+radius, start[0] - radius, start[0] + radius, prim, False])
             automesher.found_circles.append([[start[0]-radius,start[0]+radius],[start[1]-radius, start[1]+radius]])
+        if prim.GetType() == CSPrimitives.PrimitiveType.CYLINDRICALSHELL:
+            start = prim.GetStart()
+            stop = prim.GetStop()
+            radius = prim.GetRadius()
+            thickness = prim.GetShellWidth()
+            x_edges.append([start[0]-radius, start[1] - radius, start[1] + radius, prim, False])
+            x_edges.append([start[0]+radius, start[1] - radius, start[1] + radius, prim, False])
+            x_edges.append([start[0]-radius-thickness, start[1] - radius - thickness, start[1] + radius + thickness, prim, False])
+            x_edges.append([start[0]+radius+thickness, start[1] - radius - thickness, start[1] + radius + thickness, prim, False])
+            y_edges.append([start[1]-radius, start[0] - radius, start[0] + radius, prim, False])
+            y_edges.append([start[1]+radius, start[0] - radius, start[0] + radius, prim, False])
+            y_edges.append([start[1]-radius-thickness, start[0] - radius - thickness, start[0] + radius + thickness, prim, False])
+            y_edges.append([start[1]+radius+thickness, start[0] - radius - thickness, start[0] + radius + thickness, prim, False])
+            automesher.found_circles.append([[start[0]-radius,start[0]+radius],[start[1]-radius,start[1]+radius]])
+            automesher.found_circles.append([[start[0]-radius-thickness,start[0]+radius+thickness],[start[1]-radius-thickness,start[1]+radius+thickness]])
+    # xx, yy = polygon.GetCoords()[0], polygon.GetCoords()[1]
 
-def collect_edges(x_coords, y_coords, prim, x_edges, y_edges, diagonal_edges):
-    for i in range(len(x_coords) - 1):
-        if x_coords[i] != x_coords[i + 1] and y_coords[i] != y_coords[i + 1]:
-            diagonal_edges.append([x_coords[i], x_coords[i + 1], y_coords[i], y_coords[i + 1], prim])
-        if x_coords[i] == x_coords[i + 1]:
-            x_edges.append([x_coords[i], y_coords[i], y_coords[i + 1], prim, False])
-        if y_coords[i] == y_coords[i + 1]:
-            y_edges.append([y_coords[i], x_coords[i], x_coords[i + 1], prim, False])
-
-def collect_z_coordinates(polygon):
-    z = [(prim.GetElevation(), prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() != CSPrimitives.PrimitiveType.BOX and prim.GetType() != CSPrimitives.PrimitiveType.CYLINDER]
-    z.extend((prim.GetElevation() + prim.GetLength(), prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.LINPOLY)
-    box_coords_z = [(tranfer_box_to_polygon(prim)[2][0], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.BOX]
-    box_coords_z.extend((tranfer_box_to_polygon(prim)[2][1], prim) for prim in polygon if hasattr(prim, 'GetType') and prim.GetType() == CSPrimitives.PrimitiveType.BOX)
-    z = list(set(z))
-    z.sort(key=lambda x: x[0])
-    z.extend(box_coords_z)
-    return z
-
-def process_z_coordinates(automesher, z, mesh_data):
-    for z_val, prim in z:
-        dirs = automesher.primitives_mesh_setup.get(prim, {}).get('dirs') or \
-        automesher.properties_mesh_setup.get(prim.GetProperty(), {}).get('dirs') or \
-        automesher.global_mesh_setup.get('dirs')
-        if dirs is not None and 'z' in dirs:
-            mesh_data[2].append(z_val)            
-
-def process_single_polygon(polygon, x, y, x_edges, y_edges, diagonal_edges):
-    xx, yy = polygon.GetCoords()[0], polygon.GetCoords()[1]
-
-    x = np.append(x, xx)
-    y = np.append(y, yy)
-    for i in range(len(xx) - 1):
-        if xx[i] != xx[i + 1] and yy[i] != yy[i + 1]:
-            diagonal_edges.append([xx[i], xx[i + 1], yy[i], yy[i + 1], polygon, False])
-        if xx[i] == xx[i + 1]:
-            x_edges.append([xx[i], yy[i], yy[i + 1], polygon, False])
-        if yy[i] == yy[i + 1]:
-            y_edges.append([yy[i], xx[i], xx[i + 1], polygon, False])       
+    # x = np.append(x, xx)
+    # y = np.append(y, yy)
+    # for i in range(len(xx) - 1):
+    #     if xx[i] != xx[i + 1] and yy[i] != yy[i + 1]:
+    #         diagonal_edges.append([xx[i], xx[i + 1], yy[i], yy[i + 1], polygon, False])
+    #     if xx[i] == xx[i + 1]:
+    #         x_edges.append([xx[i], yy[i], yy[i + 1], polygon, False])
+    #     if yy[i] == yy[i + 1]:
+    #         y_edges.append([yy[i], xx[i], xx[i + 1], polygon, False])       
 
 def distance_between_segments(p1, p2, q1, q2):
     p = np.linspace(p1, p2, 10)
@@ -172,9 +238,12 @@ def detect_all_circles_in_polygon(automesher, polygon, min_points=20, tolerance=
         x_coords = np.concatenate([coord[0] for coord in coords])
         y_coords = np.concatenate([coord[1] for coord in coords])
     else:                
-        coords = polygon.GetCoords()
-        x_coords = np.array(coords[0])
-        y_coords = np.array(coords[1])
+        coords = polygon.GetCoords() if hasattr(polygon, 'GetCoords' ) else None
+        if coords is not None:
+            x_coords = np.array(coords[0])
+            y_coords = np.array(coords[1])
+        else:
+            return []
     N = len(x_coords)
 
     found_segments = []

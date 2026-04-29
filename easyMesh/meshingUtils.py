@@ -195,9 +195,8 @@ def get_mesh_map(automesher):
             if primitives:
                 if isinstance(primitives, list):
                     # Process each primitive
-                    for prim in primitives:
+                    for prim in primitives:      
                         geometryUtils.process_primitive(automesher, prim, tmp_x, tmp_y, tmp_x_edges, tmp_y_edges, tmp_diagonal_edges)
-
                     # Collect z-coordinates from the polygon
                     tmp_z.extend(geometryUtils.collect_z_coordinates(primitives))
 
@@ -207,8 +206,7 @@ def get_mesh_map(automesher):
                     tmp_x.extend(prim_x_coords)
                     tmp_y.extend(prim_y_coords)
                     # Process the single polygon to extract edges and coordinates
-                    geometryUtils.process_single_polygon(primitives, tmp_x, tmp_y, tmp_x_edges, tmp_y_edges, tmp_diagonal_edges)
-
+                    geometryUtils.process_single_polygon(automesher, primitives, tmp_x, tmp_y, tmp_x_edges, tmp_y_edges, tmp_diagonal_edges)   
                     # Collect z-coordinates from the single polygon
                     tmp_z.extend(geometryUtils.collect_z_coordinates([primitives]))
                 tmp_z = [(z[0]) for z in tmp_z]
@@ -221,7 +219,6 @@ def get_mesh_map(automesher):
                     mesh_map[0].extend([x_boundaries])
                     mesh_map[1].extend([y_boundaries])
                     mesh_map[2].extend([z_boundaries])
-
     return mesh_map
 
 def handle_diagonal_edges(automesher, otheredges, x_edges, y_edges, mesh_data, direction, check_max_resolution=False):
@@ -229,11 +226,11 @@ def handle_diagonal_edges(automesher, otheredges, x_edges, y_edges, mesh_data, d
     if not check_max_resolution:
         other_edges_in_range = []
         if direction == 'x':
-            unique_edges = remove_close_edges(automesher, x_edges, direction, return_edges=True)
+            unique_edges = remove_close_edges(automesher, x_edges, direction, mesh_data, return_edges=True)
             unique_edges = [unique_xedges[0] for unique_xedges in unique_edges]
 
         if direction == 'y':
-            unique_edges = remove_close_edges(automesher, y_edges, direction, return_edges=True)
+            unique_edges = remove_close_edges(automesher, y_edges, direction, mesh_data, return_edges=True)
             unique_edges = [unique_yedges[0] for unique_yedges in unique_edges]
         for edge in diagonal_edges:
             if direction == 'x':
@@ -452,7 +449,10 @@ def add_ports_to_mesh_data(automesher, mesh_data, edges, direction):
 
                 edges_to_remove.append(edges[i+1])
                 edges_to_remove.extend([edge for edge in edges if edge[0] == edges[i+1][0]])
-                edges.append(((edges[i + 1][0]+edges[i][0])/2, edges[i][1], edges[i][2], edges[i][3], True))
+                if direction == 'x':
+                    mesh_data.append(((edges[i + 1][0]+edges[i][0])/2))
+                elif direction == 'y':
+                    mesh_data.append(((edges[i + 1][0]+edges[i][0])/2))
         for edge in edges_to_remove:
             if edge in edges:
                 edges.remove(edge)
@@ -474,7 +474,7 @@ def add_ports_to_mesh_data(automesher, mesh_data, edges, direction):
                             #     
 def add_edges_to_mesh_mesh_data(automesher, mesh_data, edges, direction):
 
-    remove_close_edges(automesher, edges, direction, return_edges=False)
+    remove_close_edges(automesher, edges, direction, mesh_data, return_edges=False)
     for edge in edges:
         dirs = automesher.primitives_mesh_setup.get(edge[3], {}).get('dirs') or \
                 automesher.properties_mesh_setup.get(edge[3].GetProperty() if hasattr(edge[3], 'GetProperty') else None, {}).get('dirs') or \
@@ -491,7 +491,7 @@ def add_edges_to_mesh_mesh_data(automesher, mesh_data, edges, direction):
                     mesh_data.append(edge[0])
     # mesh_data.extend(edge[0] for edge in edges)
 
-def remove_close_edges(automesher, edges, direction, return_edges=False):
+def remove_close_edges(automesher, edges, direction,mesh_data, return_edges=False):
     if direction == 'z':
         return
     edges_to_remove = []
@@ -559,7 +559,10 @@ def remove_close_edges(automesher, edges, direction, return_edges=False):
                     else:
                         edges_to_remove.append(edges[i + 1])
                         edges_to_remove.append(edges[i])
-                        edges.append(((edges[i + 1][0]+edges[i][0])/2, edges[i][1], edges[i][2], edges[i][3], True))
+                        if direction == 'x':
+                            mesh_data[0].append(((edges[i + 1][0]+edges[i][0])/2, edges[i][1], edges[i][2], edges[i][3], True))
+                        if direction == 'y':
+                            mesh_data[1].append(((edges[i + 1][0]+edges[i][0])/2, edges[i][1], edges[i][2], edges[i][3], True))
     edges_to_remove = list({edge[0]: edge for edge in edges_to_remove}.values())
     if edges_to_remove:
         edges_to_remove_first_elements = {edge[0] for edge in edges_to_remove}
@@ -605,6 +608,7 @@ def mesh_small_gaps(automesher, unique_edges, mesh_data, direction):
                 if abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) <= automesher.mesh_res_compare and abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) >= automesher.max_res_compare and abs(np.diff([unique_edges[i][0], unique_edges[i + 1][0]])) >= 1.5:
                     other_edgs_with_same_coordinate = []
                     other_edgs_with_same_coordinate.append(unique_edges[i+1])
+                    
                     for edge in unique_edges:
                         if edge[0] == unique_edges[i+1][0]:
                             # print('Found other edge with same coordinate but different primitive:', edge)
@@ -709,11 +713,11 @@ def handle_circular_segments(automesher, x_edges, mesh_data):
             # Remove x lines inside the circle
             mesh_data[0] = [line for line in mesh_data[0] if not (min(x_seg) < line < max(x_seg))]
             # Add x lines inside the circle
-            mesh_data[0].extend(SmoothMeshLines([min(x_seg), max(x_seg)], automesher.max_res*2))
+            mesh_data[0].extend(SmoothMeshLines([min(x_seg), max(x_seg)], automesher.max_res))
             # Remove y lines inside the circle
             mesh_data[1] = [line for line in mesh_data[1] if not (min(y_seg) < line < max(y_seg))]
             # Add y lines inside the circle
-            mesh_data[1].extend(SmoothMeshLines([min(y_seg), max(y_seg)], automesher.max_res*2))
+            mesh_data[1].extend(SmoothMeshLines([min(y_seg), max(y_seg)], automesher.max_res))
 
     # arcs = geometryUtils.detect_all_arcs_in_polygon(self, polygon)
 
@@ -730,7 +734,7 @@ def handle_circular_segments(automesher, x_edges, mesh_data):
 def add_missing_mesh_lines(automesher, unique_edges, sorted_points, diagonal_edges, mesh_data, direction):
     'Check if the first and last point are x or y edges, if not it adds the missing mesh lines between the point and the edge'
     # if unique_edges.size > 0:
-    if unique_edges:
+    if unique_edges and sorted_points:
         if unique_edges[-1][0] < sorted_points[-1]:
             for other_edge in diagonal_edges:
                 if direction == 'x':
