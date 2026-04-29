@@ -37,6 +37,10 @@ class MaterialWrapper:
         decorated_func = decorate_original_method(self.original_material.AddCylinder, self._mesh_dict)
         return decorated_func(*args, **kwargs)
 
+    def AddCylindricalShell(self, *args, **kwargs):
+        decorated_func = decorate_original_method(self.original_material.AddCylindricalShell, self._mesh_dict)
+        return decorated_func(*args, **kwargs)
+    
     def AddSphere(self, *args, **kwargs):
         decorated_func = decorate_original_method(self.original_material.AddSphere, self._mesh_dict)
         return decorated_func(*args, **kwargs)
