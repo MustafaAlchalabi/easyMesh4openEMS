@@ -734,7 +734,7 @@ def handle_circular_segments(automesher, x_edges, mesh_data):
 def add_missing_mesh_lines(automesher, unique_edges, sorted_points, diagonal_edges, mesh_data, direction):
     'Check if the first and last point are x or y edges, if not it adds the missing mesh lines between the point and the edge'
     # if unique_edges.size > 0:
-    if unique_edges and sorted_points:
+    if len(unique_edges) > 0 and len(sorted_points) > 0:
         if unique_edges[-1][0] < sorted_points[-1]:
             for other_edge in diagonal_edges:
                 if direction == 'x':
