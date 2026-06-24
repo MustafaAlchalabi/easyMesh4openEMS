@@ -24,33 +24,38 @@ substrate_length = 40000
 f_min = 1.25e9 
 f_max = 2.6e9  
 
-# Initialize the FDTD simulator
+# Initialize the FDTD simulator and ContinuousStructure (CSX) for geometry definition
 FDTD = openEMS(EndCriteria=1e-4, NrTS=1e5)           # Set the simulation end criteria at -40 dB or 1e5 time steps
+CSX = ContinuousStructure()
+FDTD.SetCSX(CSX)  
+
+primitives_mesh_setup = {}  
+properties_mesh_setup = {}  
+
+# Enhance the CSX and FDTD objects for automatic mesh optimization
+CSX = enhance_csx_for_auto_mesh(CSX, primitives_mesh_setup)
+FDTD = enhance_FDTD_for_auto_mesh(FDTD, primitives_mesh_setup)
+
 FDTD.SetGaussExcite(f_max / 2, f_max / 2)  # Gaussian excitation with center frequency
 # Set boundary conditions: PML (Perfectly Matched Layer) and PEC (Perfect Electric Conductor)
 FDTD.SetBoundaryCond(['MUR', 'MUR', 'MUR', 'MUR', 'PEC', 'MUR'])
 
-# Create the ContinuousStructure (CSX) for geometry definition
-CSX = ContinuousStructure()
-FDTD.SetCSX(CSX)  
 mesh = CSX.GetGrid()  
 mesh.SetDeltaUnit(unit)  
 
 # Mesh setup parameters
-primitives_mesh_setup = {}  
-properties_mesh_setup = {}  
+
 global_mesh_setup = {
     'drawing_unit': unit, 
     'start_frequency': 0,                                                 
     'stop_frequency': f_max,                                              
+    'target_frequency': f_max,
     'smooth_metal_edge': 'one_third_two_thirds',                          # useful for thin metal layers, Options: False, 'one_third_two_thirds', 'extra_lines'
     'mesh_resolution': 'medium',                                          # Options: 'low', 'medium', 'high', 'very_high'
     'boundary_distance': [21000, 21000, 21000, 21000, None, 21000],  # Options: value, 'auto', or None
 }
 
-# Enhance the CSX and FDTD objects for automatic mesh optimization
-CSX = enhance_csx_for_auto_mesh(CSX, primitives_mesh_setup)
-FDTD = enhance_FDTD_for_auto_mesh(FDTD, primitives_mesh_setup)
+
 
 # Add the substrate to the geometry
 substrate = CSX.AddMaterial('RO5880', epsilon=substrate_epr) 

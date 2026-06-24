@@ -44,6 +44,10 @@ class Automesher:
 
         self.csx = CSX
         grid = self.csx.GetGrid()
+        for primitive, mesh_setup in list(self.primitives_mesh_setup.items()):
+            if isinstance(primitive, str):
+                self.global_mesh_setup[primitive] = self.primitives_mesh_setup.pop(primitive, None)
+            continue
         # unique_primitives = CSX.GetAllPrimitives()
         unique_primitives = list(self.primitives_mesh_setup.keys())
         # unique_primitives.extend(list(self.primitives_mesh_setup.keys()))
