@@ -85,7 +85,7 @@ global_mesh_setup = {
     'target_frequency': fstop,
     'mesh_resolution': 'medium', # 'low', 'medium', 'high', 'very_high'
     # 'use_circle_detection': True, 
-    'boundary_distance': ['auto', 'auto', 'auto', 'auto', 'auto', 'auto'], # value, 'auto' or None
+    'boundary_distance': [0, 0, 0, 0, 0, 0], # value, 'auto' or None
     # 'handle_closely_placed_edges': True,  # if True, then mesher will try to handle close placed edges by merging them
     # 'refined_cellsize': 2,
     # 'min_cellsize': 0.5,

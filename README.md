@@ -10,6 +10,7 @@ A small, pragmatic **automatic mesh generator** for the Python bindings of **ope
 * **Material‑aware smoothing:** mesh density adapts by region (air vs. dielectric/metal).
 * **Edge, gap & diagonal handling:** special heuristics for metal edges, small gaps, and diagonal/circular segments.
 * **Ports supported:** waveguide/MSL/lumped/rect ports are added to the meshing hints automatically.
+* **PML-aware boundary meshing:** boundary conditions set through the wrapped `FDTD` object are tracked, and the extra cells required by `PML_N` boundaries are added automatically outside the requested air margin.
 
 ---
 
@@ -60,29 +61,43 @@ before using `easyMesh4openEMS`.
 ## Quick Start
 
 ```python
-import openEMS
-from CSXCAD import CSXCAD
+from openEMS import openEMS
+from CSXCAD import ContinuousStructure
 from easyMesh import GenerateMesh, enhance_csx_for_auto_mesh, enhance_FDTD_for_auto_mesh
 
 # 1) Create your FDTD/CSX as usual
 FDTD = openEMS()
-CSX = ContinuousStructure()  # or however you initialize your project
+CSX = ContinuousStructure()
+FDTD.SetCSX(CSX)
 
-# 2) Wrap CSX/FDTD so newly added primitives/ports are auto‑tracked
+# 2) Wrap CSX/FDTD before adding geometry, ports, or boundary conditions
 primitives_mesh_setup = {}
 properties_mesh_setup = {}
-CSX = enhance_csx_for_auto_mesh(CSX, primitives_mesh_setup={})
-FDTD = enhance_FDTD_for_auto_mesh(FDTD, primitives_mesh_setup={})
+CSX = enhance_csx_for_auto_mesh(CSX, primitives_mesh_setup)
+FDTD = enhance_FDTD_for_auto_mesh(FDTD, primitives_mesh_setup)
 
-# 3) Describe your global meshing intent
+# 3) Set boundary conditions AFTER wrapping FDTD.
+#    This lets easyMesh detect PML_N boundaries and add their cells automatically.
+FDTD.SetBoundaryCond(['PML_8', 'PML_8', 'PML_8', 'PML_8', 'PML_8', 'PML_8'])
+
+# 4) Describe your global meshing intent
 global_mesh_setup = {
-    # Either provide start/stop OR f0/fc (unit = drawing units)
+    # Either provide start/stop OR f0/fc (frequencies in Hz)
     'start_frequency': 1e9,
     'stop_frequency': 3e9,
     # alternative: 'f0': 2e9, 'fc': 1e9,
 
     'drawing_unit': 1e-6,        # geometry unit (meters per drawing unit); 1e-6 => um units
     'mesh_resolution': 'medium', # one of: 'low'|'medium'|'high'|'very_high'
+
+    # Optional wavelength reference for automatic wavelength-based mesh settings.
+    # For antennas, use the antenna design frequency rather than necessarily f_stop.
+    # 'target_frequency': 2e9,  # optional; for antennas, typically use the design frequency
+
+    # Boundary order: [xmin, xmax, ymin, ymax, zmin, zmax]
+    # boundary_distance is the AIR MARGIN only. PML_N cells are appended automatically.
+    # 'auto' currently means lambda/3 using the selected target wavelength.
+    'boundary_distance': ['auto', 'auto', 'auto', 'auto', 'auto', 'auto'],
 
     # Optional knobs
     'min_cellsize': None,        # computed from geometry if None
@@ -93,25 +108,24 @@ global_mesh_setup = {
     'smooth_metal_edge': 'one_third_two_thirds', # useful for thin metal layers, Options: False, 'one_third_two_thirds', 'extra_lines'
     'use_circle_detection': False,               # detect circles for better angular resolution
     'handle_closely_placed_edges': True,  # if True, then mesher will try to handle close placed edges by merging them
-
 }
 
-# 4) create your structure
+# 5) Create your structure
+# substrate = CSX.AddMaterial('RO5880', epsilon=substrate_epr)
+# substrate.AddBox(start, stop, priority=10) etc....
 
-# substrate = CSX.AddMaterial('RO5880', epsilon=substrate_epr) 
-# substrate.AddBox(start, stop, priority=10) etc.... 
-
-# 5) (Optional) Provide per‑primitive/property hints
-
+# 6) (Optional) Provide per‑primitive/property hints
 # Example: later, when you add geometry (if CSX is wrapped), hints are auto‑collected.
 # You can also add entries manually, e.g. to restrict directions:
 # primitives_mesh_setup[my_prim] = { 'dirs': 'xy', 'edges_only': False, 'metal_edge_res': None }
 
-# 6) Generate and write mesh lines to CSX
+# 7) Generate and write mesh lines to CSX
 GenerateMesh(CSX, global_mesh_setup, primitives_mesh_setup, properties_mesh_setup)
 
-# 7) Continue with your usual openEMS workflow (run, post-processing ...)
+# 8) Continue with your usual openEMS workflow (run, post-processing ...)
 ```
+
+> **Important for PML boundaries:** `enhance_FDTD_for_auto_mesh(...)` must be called **before** `FDTD.SetBoundaryCond(...)`. The wrapper records the boundary conditions for the mesher; boundary conditions that were set on the original `FDTD` object before wrapping cannot be detected retroactively.
 
 ---
 
@@ -139,7 +153,7 @@ Wraps your `CSX` so that **any new primitive you add later** is automatically re
 
 ### `enhance_FDTD_for_auto_mesh(original_FDTD, primitives_mesh_setup)`
 
-Wraps your `FDTD` so **ports** (`AddLumpedPort`, `AddWaveGuidePort`, `AddRectWaveGuidePort`, `AddMSLPort`) are also auto‑registered with default port hints.
+Wraps your `FDTD` so **ports** (`AddLumpedPort`, `AddWaveGuidePort`, `AddRectWaveGuidePort`, `AddMSLPort`) are auto‑registered with default port hints. The wrapper also records calls to `FDTD.SetBoundaryCond(...)`, which allows the mesher to detect `PML_N` boundaries and append the corresponding PML cells. Therefore, wrap the `FDTD` object **before** calling `SetBoundaryCond(...)`.
 
 ---
 
@@ -152,7 +166,9 @@ Wraps your `FDTD` so **ports** (`AddLumpedPort`, `AddWaveGuidePort`, `AddRectWav
   * `start_frequency` + `stop_frequency`
   * `f0` + `fc`
 
-  These determine a wavelength used to derive a nominal cell size and limits.
+  These provide the default wavelength reference used to derive wavelength-based mesh sizes and limits.
+
+  * `target_frequency` *(optional)*: overrides that wavelength reference for the automatic meshing calculations. For antenna simulations, this can be the antenna design frequency (for example 868 MHz) even when `stop_frequency` is higher. It does not replace the required start/stop or `f0`/`fc` pair.
 
 * **Units**
 
@@ -166,6 +182,16 @@ Wraps your `FDTD` so **ports** (`AddLumpedPort`, `AddWaveGuidePort`, `AddRectWav
     * `low`   → coarser mesh
     * `medium` (default)
     * `high` / `very_high` → finer
+
+* **Boundary distance and PML** *(optional)*
+
+  * `boundary_distance`: six entries in the order `[xmin, xmax, ymin, ymax, zmin, zmax]`. Numeric values are in drawing units.
+  * A numeric `boundary_distance` is interpreted as the **air margin only** between the structure/antenna and the start of the absorbing boundary region. Do **not** add the PML thickness manually.
+  * `'auto'` currently uses a conservative air margin of `lambda/3`, based on the mesher wavelength. If `target_frequency` is set, that wavelength is based on `target_frequency`.
+  * `None` means no added air margin on that side. With the current implementation, automatic PML-cell extension is only applied on sides whose resulting boundary distance is greater than zero; for a `PML_N` side, use `'auto'` or a positive numeric air margin if the PML cells should be appended automatically.
+  * If a captured boundary condition is `PML_N` (for example `PML_8`), easyMesh appends the additional PML mesh cells **after** the air margin. The user should therefore pass only the desired air distance, such as an explicit `lambda/4`, not `lambda/4 + PML thickness`.
+
+  > To make this work, call `enhance_FDTD_for_auto_mesh(...)` before `FDTD.SetBoundaryCond(...)`.
 
 * **Direct overrides** *(optional)*
 
@@ -203,6 +229,11 @@ Take a look for the examples in the Tutorials folder
 
 - **Mesh is too coarse / too fine**  
   - Adjust `mesh_resolution` (`low` ↔ `very_high`) or set `refined_cellsize`/`min_cellsize` directly.
+
+- **PML cells are missing at a boundary**  
+  - Make sure `FDTD = enhance_FDTD_for_auto_mesh(...)` is called before `FDTD.SetBoundaryCond(...)`.
+  - Use a `PML_N` boundary string such as `PML_8` and use `'auto'` or a positive numeric `boundary_distance` on that side.
+  - Treat `boundary_distance` as the air margin only; do not add the PML cells manually.
 
 - **Very dense mesh near tiny gaps**  
   This is usually intentional to resolve small features.  
