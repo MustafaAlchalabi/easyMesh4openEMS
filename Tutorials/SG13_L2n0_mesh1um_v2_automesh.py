@@ -59,29 +59,33 @@ eps_max = 11.9 # maximum permittivity in model, used for calculating max cellsiz
 
 lim = exp(energy_limit/10 * log(10))
 FDTD = openEMS(EndCriteria=lim)
-FDTD.SetGaussExcite( (fstart+fstop)/2, (fstop-fstart)/2 )
-FDTD.SetBoundaryCond( Boundaries )
+CSX = ContinuousStructure()
+FDTD.SetCSX(CSX)
 
 wavelength_air = (3e8/unit)/fstop
 max_cellsize = wavelength_air/(sqrt(eps_max)*20) # max cellsize is lambda/20 in medium
  
+primitives_mesh_setup = {}
+properties_mesh_setup = {}
 
+CSX = enhance_csx_for_auto_mesh(CSX, primitives_mesh_setup)
+FDTD = enhance_FDTD_for_auto_mesh(FDTD, primitives_mesh_setup)
 ############ Geometry setup ############
 
-CSX = ContinuousStructure()
-FDTD.SetCSX(CSX)
+FDTD.SetGaussExcite( (fstart+fstop)/2, (fstop-fstart)/2 )
+FDTD.SetBoundaryCond( Boundaries )
 mesh = CSX.GetGrid()
 mesh.SetDeltaUnit(unit)
 
-primitives_mesh_setup = {}
-properties_mesh_setup = {}
+
 global_mesh_setup = {
     'drawing_unit': unit,
     'start_frequency': fstart,
     'stop_frequency': fstop,
+    'target_frequency': fstop,
     'mesh_resolution': 'medium', # 'low', 'medium', 'high', 'very_high'
     # 'use_circle_detection': True, 
-    'boundary_distance': ['auto', 'auto', 'auto', 'auto', 'auto', 'auto'], # value, 'auto' or None
+    'boundary_distance': [0, 0, 0, 0, 0, 0], # value, 'auto' or None
     # 'handle_closely_placed_edges': True,  # if True, then mesher will try to handle close placed edges by merging them
     # 'refined_cellsize': 2,
     # 'min_cellsize': 0.5,
@@ -91,8 +95,6 @@ global_mesh_setup = {
     # 'fc': ,  # 20 dB corner frequency
 }
 
-CSX = enhance_csx_for_auto_mesh(CSX, primitives_mesh_setup)
-FDTD = enhance_FDTD_for_auto_mesh(FDTD, primitives_mesh_setup)
 
 # silicon substrate
 Sub = CSX.AddMaterial('Sub', epsilon=11.9, kappa=2)

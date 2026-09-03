@@ -27,12 +27,15 @@ def get_mesh_parameters(automesher):
             f0 = automesher.global_mesh_setup.get('f0', None)
             fc = automesher.global_mesh_setup.get('fc', None)
             unit = automesher.global_mesh_setup.get('drawing_unit', 1e-6)
+            target_frequency = automesher.global_mesh_setup.get('target_frequency', None)
             if fstart is not None and fstop is not None:
                 automesher.wave_length = (C0/unit) / fstop
             elif f0 is not None and fc is not None:
                 automesher.wave_length = (C0/unit) / (f0+fc)
             else:
                 raise ValueError('Please provide start and stop frequency or f0 and fc in the global mesh setup')
+            if  target_frequency is not None:
+                automesher.wave_length = (C0/unit) / target_frequency
             epsilon = 1
             mesh_resolution = automesher.global_mesh_setup.get('mesh_resolution', 'medium')
             if mesh_resolution == 'low':

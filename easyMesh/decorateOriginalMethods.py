@@ -75,8 +75,15 @@ class CSXWrapper:
 
     def __getattr__(self, name):
         return getattr(self.original_csx, name)
+    def __setattr__(self, name, value):
+        if name in ['original_csx', '_mesh_dict']:
+            super().__setattr__(name, value)
+        else:
+            setattr(self.original_csx, name, value)
         
 class FDTDWrapper:
+
+    BoundaryCond_dict = {}
     def __init__(self, original_FDTD, primitives_mesh_setup):
         self.original_FDTD = original_FDTD
         self._mesh_dict = primitives_mesh_setup
@@ -105,6 +112,19 @@ class FDTDWrapper:
             self._mesh_dict[port] = default_auto_mesh_hint_for_ports
         return port
 
+    def SetBoundaryCond(self, *args, **kwargs):
+        result = self.original_FDTD.SetBoundaryCond(*args, **kwargs)
+        if args:
+            self.BoundaryCond_dict = {'BoundaryCond': args[0]}
+            self._mesh_dict['boundary_conditions'] = self.BoundaryCond_dict 
+        return result
+
     def __getattr__(self, name):
         return getattr(self.original_FDTD, name)
+    
+    def __setattr__(self, name, value):
+        if name in ['original_FDTD', '_mesh_dict', 'BoundaryCond_dict']:
+            super().__setattr__(name, value)
+        else:
+            setattr(self.original_FDTD, name, value)
     

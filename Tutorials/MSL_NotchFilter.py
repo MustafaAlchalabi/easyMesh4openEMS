@@ -21,32 +21,35 @@ stub_length = 12e3
 f_max = 7e9
 resolution = C0/(f_max*sqrt(substrate_epr))/unit/25 # resolution of lambda/30
 
-# Initialize the FDTD simulator
+# Initialize the FDTD simulator and ContinuousStructure (CSX) for geometry definition
 FDTD = openEMS()
-FDTD.SetGaussExcite( f_max/2, f_max/2 )
-FDTD.SetBoundaryCond( ['PML_8', 'PML_8', 'MUR', 'MUR', 'PEC', 'MUR'] )
-
-# Create the ContinuousStructure (CSX) for geometry definition
 CSX = ContinuousStructure()
 FDTD.SetCSX(CSX)
-mesh = CSX.GetGrid()
-mesh.SetDeltaUnit(unit)
 
-# Mesh setup parameters
 primitives_mesh_setup = {}
 properties_mesh_setup = {}
-global_mesh_setup = {
-    'drawing_unit': unit,
-    'start_frequency': 0,
-    'stop_frequency': f_max,
-    'mesh_resolution': 'medium',                               # Options: 'low', 'medium', 'high', 'very_high'
-    'smooth_metal_edge': 'extra_lines',                        # useful for thin metal layers, Options: False, 'one_third_two_thirds', 'extra_lines'
-    'boundary_distance': [None, None, None, None, None, 3000], # Options: value, 'auto' or None
-}
 
 # Enhance the CSX and FDTD objects for automatic mesh optimization
 CSX = enhance_csx_for_auto_mesh(CSX, primitives_mesh_setup)
 FDTD = enhance_FDTD_for_auto_mesh(FDTD, primitives_mesh_setup)
+
+FDTD.SetGaussExcite( f_max/2, f_max/2 )
+FDTD.SetBoundaryCond( ['PML_8', 'PML_8', 'MUR', 'MUR', 'PEC', 'MUR'] )
+
+mesh = CSX.GetGrid()
+mesh.SetDeltaUnit(unit)
+
+# Mesh setup parameters
+
+global_mesh_setup = {
+    'drawing_unit': unit,
+    'start_frequency': 0,
+    'stop_frequency': f_max,
+    'target_frequency': f_max,
+    'mesh_resolution': 'medium',                               # Options: 'low', 'medium', 'high', 'very_high'
+    'smooth_metal_edge': 'extra_lines',                        # useful for thin metal layers, Options: False, 'one_third_two_thirds', 'extra_lines'
+    'boundary_distance': [None, None, None, None, None, 3000], # Options: value, 'auto' or None
+}
 
 # Add the substrate to the geometry
 substrate = CSX.AddMaterial( 'RO4350B', epsilon=substrate_epr)

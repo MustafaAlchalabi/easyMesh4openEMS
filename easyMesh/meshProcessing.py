@@ -311,6 +311,8 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
     mesh_data[2] = sorted(set(mesh_data[2]))
 
     distance = automesher.global_mesh_setup.get('boundary_distance', ['auto', 'auto', 'auto', 'auto', 'auto', 'auto'])
+    BC = automesher.global_mesh_setup.get('boundary_conditions', ['PML_8', 'PML_8', 'PML_8', 'PML_8', 'PML_8', 'PML_8'])
+
     for i in range(len(distance)):
         if distance[i] == 'auto':
             distance[i] = automesher.wave_length/3
@@ -336,6 +338,35 @@ def smooth_and_process_mesh_lines(automesher, mesh_data, polygon, grid, x_edges,
     mesh_data[0] = np.append(mesh_data[0], graded_lines_x)
     mesh_data[1] = np.append(mesh_data[1], graded_lines_y)
     mesh_data[2] = np.append(mesh_data[2], graded_lines_z)
+
+    mesh_data[0] = sorted(set(mesh_data[0]))
+    mesh_data[1] = sorted(set(mesh_data[1]))
+    mesh_data[2] = sorted(set(mesh_data[2]))
+
+
+    # check if PML is used and add as many lines as PML thickness to the mesh_data list for each boundary with PML
+    for i in range(len(BC.get('BoundaryCond', []))):
+        if 'PML' in BC.get('BoundaryCond', [])[i] and distance[i] > 0:
+            pml_thickness = int(BC.get('BoundaryCond', [])[i].split('_')[1]) +1
+            if i == 0:  # x_min
+                last_cell_size = np.diff(mesh_data[0])[0] if len(mesh_data[0]) > 1 else automesher.max_cellsize_air
+                mesh_data[0] = np.append(mesh_data[0], np.linspace(np.min(mesh_data[0]), np.min(mesh_data[0]) - pml_thickness * abs(last_cell_size), pml_thickness))
+            elif i == 1:  # x_max
+                last_cell_size = np.diff(mesh_data[0])[-1] if len(mesh_data[0]) > 1 else automesher.max_cellsize_air
+                mesh_data[0] = np.append(mesh_data[0], np.linspace(np.max(mesh_data[0]), np.max(mesh_data[0]) + pml_thickness * abs(last_cell_size), pml_thickness))
+            elif i == 2:  # y_min
+                last_cell_size = np.diff(mesh_data[1])[0] if len(mesh_data[1]) > 1 else automesher.max_cellsize_air
+                mesh_data[1] = np.append(mesh_data[1], np.linspace(np.min(mesh_data[1]), np.min(mesh_data[1]) - pml_thickness * abs(last_cell_size), pml_thickness))
+            elif i == 3:  # y_max
+                last_cell_size = np.diff(mesh_data[1])[-1] if len(mesh_data[1]) > 1 else automesher.max_cellsize_air
+                mesh_data[1] = np.append(mesh_data[1], np.linspace(np.max(mesh_data[1]), np.max(mesh_data[1]) + pml_thickness * abs(last_cell_size), pml_thickness))
+            elif i == 4:  # z_min
+                last_cell_size = np.diff(mesh_data[2])[0] if len(mesh_data[2]) > 1 else automesher.max_cellsize_air
+                mesh_data[2] = np.append(mesh_data[2], np.linspace(np.min(mesh_data[2]), np.min(mesh_data[2]) - pml_thickness * abs(last_cell_size), pml_thickness))
+            elif i == 5:  # z_max
+                last_cell_size = np.diff(mesh_data[2])[-1] if len(mesh_data[2]) > 1 else automesher.max_cellsize_air
+                mesh_data[2] = np.append(mesh_data[2], np.linspace(np.max(mesh_data[2]), np.max(mesh_data[2]) + pml_thickness * abs(last_cell_size), pml_thickness))
+                
 
     mesh_data[0] = mesh_data[0].tolist() if isinstance(mesh_data[0], np.ndarray) else mesh_data[0]
     mesh_data[1] = mesh_data[1].tolist() if isinstance(mesh_data[1], np.ndarray) else mesh_data[1]
